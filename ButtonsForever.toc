@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: ButtonsForever
+## Notes: Mage teleport/portal flyouts plus a trade-window helper for conjuring and trading food/water.
+## SavedVariables: ButtonsForeverDB
+## OptionalDeps: ElvUI
+
+Locales.lua
+Logic.lua
+ButtonsForever.lua
