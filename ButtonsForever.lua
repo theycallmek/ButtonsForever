@@ -45,7 +45,8 @@ local FOOD_RANKS = {
 local MAX_TRADE_SLOTS = 6 -- slot 7 is "will not be traded"
 local GAP = 3
 local DEFAULTS = { width = 36, height = 36, zoom = 8, elvui = true, water = 1, food = 1,
-	barDir = "UP", tradeDir = "RIGHT" }
+	barDir = "UP", tradeDir = "RIGHT", barStrata = "MEDIUM", tradeStrata = "HIGH",
+	showBar = true, showTrade = true, mouseover = false }
 -- flyout direction -> button point, toggle point, x sign, y sign
 local DIRS = {
 	UP = { "BOTTOM", "TOP", 0, 1 },
@@ -121,9 +122,9 @@ local function MakeFlyout(name, parent, spells, label, dirKey, countFn)
 	t:RegisterForClicks("AnyUp")
 	t.label, t.dirKey, t.buttons = label, dirKey, {}
 
-	local fly = CreateFrame("Frame", nil, t, "SecureFrameTemplate")
-	fly:SetFrameStrata("DIALOG")
+	local fly = CreateFrame("Frame", nil, t, "SecureFrameTemplate") -- inherits the bar/panel strata setting
 	fly:Hide()
+	t.fly = fly
 	t:SetFrameRef("flyout", fly)
 	t:SetAttribute("_onclick", [[
 		local f = self:GetFrameRef("flyout")
@@ -146,6 +147,21 @@ local function MakeFlyout(name, parent, spells, label, dirKey, countFn)
 	t:SetScript("OnLeave", GameTooltip_Hide)
 	flyouts[#flyouts + 1] = t
 	return t
+end
+
+-- Close open flyouts when a mouse press lands anywhere except the flyout's own buttons.
+-- shortcut: skipped in combat, where addon code can't hide secure frames; the toggle and casting still close them.
+local function CloseFlyoutsOnOutsideClick()
+	if InCombatLockdown() then return end
+	for _, t in ipairs(flyouts) do
+		if t.fly:IsShown() and not t:IsMouseOver() then
+			local onButton = false
+			for _, b in ipairs(t.buttons) do
+				if b:IsVisible() and b:IsMouseOver() then onButton = true break end
+			end
+			if not onButton then t.fly:Hide() end
+		end
+	end
 end
 
 -- Corner counts are plain font strings, so this is safe in combat.
@@ -191,7 +207,11 @@ local function RefreshAll()
 		t:SetShown(n > 0)
 	end
 	bar:SetSize(2 * w + GAP, h)
+	bar:SetFrameStrata(db.barStrata)
+	bar:SetShown(db.showBar)
+	bar:UpdateFade()
 	trade:SetSize(6 + w + 10 + 22 + 4 + 100 + 6, 6 + 3 * h + 2 * 8 + 6)
+	trade:SetFrameStrata(db.tradeStrata)
 end
 
 ---------------------------------------------------------------- main bar
@@ -208,7 +228,22 @@ local function BuildBar()
 	local port = MakeFlyout("ButtonsForeverPortals", bar, PORTALS, L["Portals"], "barDir", ItemCounter(RUNE_PORT))
 	port:SetPoint("LEFT", tele, "RIGHT", GAP, 0)
 
+	-- Mouseover setting: invisible until hovered or a flyout is open. Alpha is allowed in combat,
+	-- and hidden-by-alpha buttons still take clicks, like other addons' mouseover bars.
+	function bar:UpdateFade()
+		local show = not db.mouseover
+		for _, t in ipairs({ tele, port }) do
+			if t:IsMouseOver() or t.fly:IsShown() then show = true end
+		end
+		self:SetAlpha(show and 1 or 0)
+	end
+	local function Fade() bar:UpdateFade() end
+
 	for _, t in ipairs({ tele, port }) do
+		t:HookScript("OnEnter", Fade)
+		t:HookScript("OnLeave", Fade)
+		t.fly:HookScript("OnShow", Fade)
+		t.fly:HookScript("OnHide", Fade)
 		t.hint = L["Shift-drag to move"]
 		t:RegisterForDrag("LeftButton")
 		t:SetScript("OnDragStart", function()
@@ -313,7 +348,6 @@ end
 
 local function BuildTrade()
 	trade = CreateFrame("Frame", "ButtonsForeverTrade", UIParent)
-	trade:SetFrameStrata("HIGH")
 	trade:Hide()
 	if E then
 		trade:SetTemplate("Transparent")
@@ -337,7 +371,8 @@ end
 
 local function SyncTrade()
 	if InCombatLockdown() then return end -- retried on PLAYER_REGEN_ENABLED
-	if wantTrade and not trade:IsShown() then
+	local show = wantTrade and db.showTrade
+	if show and not trade:IsShown() then
 		SetConjureRanks()
 		-- copy TradeFrame's position instead of anchoring to it, so the Blizzard frame never
 		-- becomes anchored to our protected panel
@@ -348,17 +383,41 @@ local function SyncTrade()
 			trade:SetPoint("CENTER")
 		end
 	end
-	trade:SetShown(wantTrade)
+	trade:SetShown(show)
 end
 
 ---------------------------------------------------------------- settings (Esc > Options > AddOns, or /bf)
 local function BuildSettings()
 	local cat = Settings.RegisterVerticalLayoutCategory(addonName)
+	local function Apply()
+		RefreshAll()
+		SyncTrade()
+	end
 	local function Add(key, name)
 		local s = Settings.RegisterAddOnSetting(cat, addonName .. "_" .. key, key, db, type(DEFAULTS[key]), name, DEFAULTS[key])
-		s:SetValueChangedCallback(RefreshAll)
+		s:SetValueChangedCallback(Apply)
 		return s
 	end
+	-- choices: { {value, label}, ... }
+	local function Dropdown(key, name, tip, choices)
+		local function options()
+			local c = Settings.CreateControlTextContainer()
+			for _, choice in ipairs(choices) do c:Add(choice[1], choice[2]) end
+			return c:GetData()
+		end
+		Settings.CreateDropdown(cat, Add(key, name), options, tip)
+	end
+	local DIRECTIONS = { { "UP", L["Up"] }, { "DOWN", L["Down"] }, { "LEFT", L["Left"] }, { "RIGHT", L["Right"] } }
+	local STRATAS = {
+		{ "BACKGROUND", L["Background"] }, { "LOW", L["Low"] }, { "MEDIUM", L["Medium"] }, { "HIGH", L["High"] },
+		{ "DIALOG", L["Dialog"] }, { "FULLSCREEN", L["Fullscreen"] }, { "FULLSCREEN_DIALOG", L["Fullscreen dialog"] },
+		{ "TOOLTIP", L["Tooltip"] },
+	}
+
+	Settings.CreateCheckbox(cat, Add("showBar", L["Show flyout bar"]), L["Show the Teleport and Portal bar."])
+	Settings.CreateCheckbox(cat, Add("mouseover", L["Show bar on mouseover only"]),
+		L["Keeps the bar invisible until you move the mouse over it. It stays visible while a flyout is open."])
+	Settings.CreateCheckbox(cat, Add("showTrade", L["Show trade window panel"]), L["Show the panel beside the trade window."])
 	local function Slider(key, name, min, max, tip, fmt)
 		local o = Settings.CreateSliderOptions(min, max, 1)
 		o:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, fmt)
@@ -368,19 +427,11 @@ local function BuildSettings()
 	Slider("height", L["Button height"], 16, 80, L["Height of every ButtonsForever button."])
 	Slider("zoom", L["Icon zoom"], 0, 30, L["Crops the icon's edges. Non-square buttons crop further so icons don't stretch."],
 		function(v) return v .. "%" end)
-	local function Direction(key, name, tip)
-		local function options()
-			local c = Settings.CreateControlTextContainer()
-			c:Add("UP", L["Up"])
-			c:Add("DOWN", L["Down"])
-			c:Add("LEFT", L["Left"])
-			c:Add("RIGHT", L["Right"])
-			return c:GetData()
-		end
-		Settings.CreateDropdown(cat, Add(key, name), options, tip)
-	end
-	Direction("barDir", L["Bar flyout direction"], L["Which way the Teleport and Portal flyouts on the bar open."])
-	Direction("tradeDir", L["Trade window flyout direction"], L["Which way the Portal flyout on the trade window panel opens."])
+	Dropdown("barDir", L["Bar flyout direction"], L["Which way the Teleport and Portal flyouts on the bar open."], DIRECTIONS)
+	Dropdown("tradeDir", L["Trade window flyout direction"], L["Which way the Portal flyout on the trade window panel opens."], DIRECTIONS)
+	Dropdown("barStrata", L["Bar strata"],
+		L["Draw layer of the bar and its flyouts. Higher layers appear above more of the interface."], STRATAS)
+	Dropdown("tradeStrata", L["Trade window strata"], L["Draw layer of the trade window panel and its flyout."], STRATAS)
 	Settings.CreateCheckbox(cat, Add("elvui", L["Match ElvUI style"]),
 		L["Use ElvUI's button and panel look when ElvUI is installed. Takes effect after /reload."])
 	Settings.RegisterAddOnCategory(cat)
@@ -406,9 +457,11 @@ ev:SetScript("OnEvent", function(self, event, arg)
 		BuildSettings()
 		self:UnregisterEvent("ADDON_LOADED")
 		for _, e in ipairs({ "PLAYER_LOGIN", "SPELLS_CHANGED", "BAG_UPDATE_DELAYED",
-			"PLAYER_REGEN_ENABLED", "TRADE_SHOW", "TRADE_CLOSED" }) do
+			"PLAYER_REGEN_ENABLED", "TRADE_SHOW", "TRADE_CLOSED", "GLOBAL_MOUSE_DOWN" }) do
 			self:RegisterEvent(e)
 		end
+	elseif event == "GLOBAL_MOUSE_DOWN" then
+		CloseFlyoutsOnOutsideClick()
 	elseif event == "BAG_UPDATE_DELAYED" then
 		UpdateCounts()
 	elseif event == "TRADE_SHOW" or event == "TRADE_CLOSED" then
