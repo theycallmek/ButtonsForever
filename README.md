@@ -54,7 +54,7 @@ The spell terms in each translation were checked against wowhead's in-game names
 
 | File | Contents |
 |---|---|
-| `ButtonsForever.toc` | Addon metadata, Interface `16001` |
+| `ButtonsForever.toc`, `ButtonsForever_Forever.toc` | Addon metadata, Interface `16001`. Identical; the `_Forever` copy tells WoWUp it's a Forever addon, so keep both in sync |
 | `Locales.lua` | Translated UI text |
 | `Logic.lua` | Pure logic with no game API: rank picking, stack picking, icon cropping |
 | `ButtonsForever.lua` | Frames, secure buttons, events and settings |
