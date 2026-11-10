@@ -8,7 +8,7 @@ The addon does nothing on characters that aren't mages.
 
 ### Teleport and Portal flyouts
 
-![The Teleports flyout open on a level 22 mage, showing Orgrimmar and Undercity, with the rune count on each button](docs/flyout.png)
+![The Teleports flyout open on a level 22 mage, showing Orgrimmar and Undercity, with the rune count on each button](.previews/flyout.png)
 - A small bar with two buttons, **Teleports** and **Portals**. Click one to open a flyout of the city spells you know, then click a city to cast it. The flyout closes after casting, or when you click anywhere else. In combat, clicking elsewhere doesn't close it, because WoW blocks addons from doing that; click the button again instead.
 - They work in combat.
 - Each button shows how many runes you have: Rune of Teleportation for teleports, Rune of Portals for portals. The number turns red at 0.
@@ -17,7 +17,7 @@ The addon does nothing on characters that aren't mages.
 ### Trade window helper
 Open a trade with someone and a panel appears beside the trade window:
 
-![The ButtonsForever panel beside the trade window, set up for a level 17 trade partner](docs/trade-window.png)
+![The ButtonsForever panel beside the trade window, set up for a level 17 trade partner](.previews/trade-window.png)
 
 - **A Portal flyout**, for porting the person you're trading with.
 - **Conjure Water / Conjure Food** buttons cast the highest rank your trade partner can use. For example, a level 17 gets level 15 water. If you don't know that rank yet, they use the best one you do know. The panel title shows your partner's level.
@@ -27,7 +27,7 @@ Open a trade with someone and a panel appears beside the trade window:
 ### Settings
 Type `/bf` (or `/buttonsforever`), or go to **Esc → Options → AddOns → ButtonsForever**.
 
-![The ButtonsForever settings panel](docs/settings.png)
+![The ButtonsForever settings panel](.previews/settings.png)
 
 | Setting | What it does |
 |---|---|
