@@ -23,14 +23,15 @@ local PORTALS = {
 local RUNE_TELE = 17031 -- Rune of Teleportation (item)
 local RUNE_PORT = 17032 -- Rune of Portals (item)
 -- uiMapID of each city with a rune vendor -> vendor spots on that map (x, y in percent), from wowhead Forever.
+-- faction: only that faction is alerted (the other can't buy there); none = neutral, everyone is.
 -- Thunder Bluff's vendor walks a path, hence all the points.
 local RUNE_CITIES = {
-	[1453] = { { 55, 65.2 }, { 55.2, 66 }, { 55.8, 65.2 }, { 63, 74.8 } }, -- Stormwind City
-	[1455] = { { 30.4, 26.4 }, { 30.6, 26.4 }, { 31.2, 27.4 }, { 31.2, 27.6 } }, -- Ironforge
-	[1457] = { { 34, 9.4 }, { 34, 9.6 }, { 34.6, 9.8 } }, -- Darnassus
-	[1454] = { { 45.4, 56.4 }, { 45.4, 56.8 }, { 45.6, 56.8 } }, -- Orgrimmar
-	[1458] = { { 69.4, 39.2 }, { 69.4, 39.6 }, { 69.6, 39.2 } }, -- Undercity
-	[1456] = { -- Thunder Bluff
+	[1453] = { faction = "Alliance", { 55, 65.2 }, { 55.2, 66 }, { 55.8, 65.2 }, { 63, 74.8 } }, -- Stormwind City
+	[1455] = { faction = "Alliance", { 30.4, 26.4 }, { 30.6, 26.4 }, { 31.2, 27.4 }, { 31.2, 27.6 } }, -- Ironforge
+	[1457] = { faction = "Alliance", { 34, 9.4 }, { 34, 9.6 }, { 34.6, 9.8 } }, -- Darnassus
+	[1454] = { faction = "Horde", { 45.4, 56.4 }, { 45.4, 56.8 }, { 45.6, 56.8 } }, -- Orgrimmar
+	[1458] = { faction = "Horde", { 69.4, 39.2 }, { 69.4, 39.6 }, { 69.6, 39.2 } }, -- Undercity
+	[1456] = { faction = "Horde", -- Thunder Bluff
 		{ 36.4, 54.4 }, { 36.4, 54.6 }, { 36.4, 55.6 }, { 36.6, 53.4 }, { 36.6, 53.8 }, { 36.6, 55.4 }, { 36.6, 55.8 },
 		{ 36.8, 57 }, { 37, 52.2 }, { 37.2, 58.4 }, { 37.2, 58.6 }, { 37.4, 51.4 }, { 37.4, 59.8 }, { 37.6, 51.6 },
 		{ 37.6, 60.2 }, { 38, 61.2 }, { 38.4, 51.2 }, { 38.4, 61.8 }, { 38.6, 62.2 }, { 38.8, 51.4 }, { 39.4, 52 },
@@ -39,6 +40,27 @@ local RUNE_CITIES = {
 		{ 41.8, 59.8 }, { 42, 55.4 }, { 42.4, 56 }, { 42.4, 56.6 }, { 42.4, 58.2 }, { 42.4, 59.2 }, { 42.6, 55.4 },
 		{ 42.6, 56.4 }, { 42.6, 58.2 }, { 42.6, 58.8 }, { 42.6, 59.6 }, { 42.8, 56.6 }, { 43.6, 57.4 }, { 43.6, 57.8 },
 	},
+}
+-- Rune vendors out in the zones, same format, plus area = the town's area (subzone) ID, from AreaTable.
+-- These only alert inside that town, not across the zone. Checked when you cross into a new subzone, so
+-- there's no polling. Winterspring (58.8, 78.4) and Riverglades (62.2, 85.8, Alliance) also have vendors
+-- but are left out until their town's area ID is known.
+local RUNE_TOWNS = {
+	[1429] = { area = 91, faction = "Alliance", { 64.8, 69.2 } }, -- Elwynn Forest (Tower of Azora)
+	[1431] = { area = 42, faction = "Alliance", { 76, 45.2 } }, -- Duskwood (Darkshire)
+	[1435] = { area = 75, faction = "Horde", { 45.8, 53 } }, -- Swamp of Sorrows (Stonard)
+	[1437] = { area = 150, faction = "Alliance", { 8.4, 56.4 }, { 8.4, 56.6 } }, -- Wetlands (Menethil Harbor)
+	[1416] = { area = 279, { 14, 63.4 }, { 14.2, 63.6 } }, -- Alterac Mountains (Dalaran, neutral; town inferred from coords)
+	[1417] = { area = 324, { 27, 58.8 } }, -- Arathi Highlands (Stromgarde Keep, neutral; town inferred from coords)
+	[1424] = { area = 271, faction = "Alliance", { 50.8, 59 } }, -- Hillsbrad Foothills (Southshore)
+	[1425] = { area = 3317, faction = "Horde", { 78.8, 78.4 }, { 78.8, 78.6 } }, -- The Hinterlands (Revantusk Village)
+	[1413] = { area = 380, faction = "Horde", { 51.4, 30.2 } }, -- The Barrens (The Crossroads)
+	[1440] = { area = 415, faction = "Alliance", { 35, 48.4 }, { 35, 48.6 } }, -- Ashenvale (Astranaar)
+	[1441] = { area = 484, faction = "Horde", { 45, 50.4 }, { 45.2, 50.6 } }, -- Thousand Needles (Freewind Post)
+	[1442] = { area = 460, faction = "Horde", { 47.4, 61.8 }, { 47.6, 61.6 } }, -- Stonetalon Mountains (Sun Rock Retreat)
+	[1444] = { area = 1116, faction = "Alliance", { 30.8, 42 } }, -- Feralas (Feathermoon Stronghold)
+	[1445] = { area = 496, faction = "Horde", { 36.4, 30.4 }, { 36.4, 30.6 }, { 36.6, 30.4 }, { 36.6, 30.6 } }, -- Dustwallow Marsh (Brackenwall Village)
+	[1451] = { area = 3425, { 48.8, 37 } }, -- Silithus (Cenarion Hold, neutral)
 }
 
 -- spell = conjure spell, item = what it makes, level = that item's required level. Lowest rank first.
@@ -413,7 +435,6 @@ end
 
 ---------------------------------------------------------------- out-of-runes alert
 local alertedRunes = {}
-local markedPoint -- the vendor waypoint we set, nil when none
 local function KnowsAny(spells)
 	for _, s in ipairs(spells) do if Known(s) then return true end end
 	return false
@@ -422,41 +443,119 @@ local function PlayAlertSound(key)
 	local id = SOUNDKIT[key]
 	if id then PlaySound(id) end
 end
--- Built-in map waypoint (world map + minimap) on the vendor spot nearest the player.
--- shortcut: replaces any waypoint the player had set (the game only allows one), and doesn't restore it.
-local function MarkVendor(map)
-	if not (C_Map.CanSetUserWaypointOnMap and C_Map.CanSetUserWaypointOnMap(map)) then return end
+-- Player position on `map` in percent, or nil (unknown, or hidden by the game).
+local function PlayerPos(map)
 	local pos = C_Map.GetPlayerMapPosition(map, "player")
-	local px, py
-	if pos then px, py = pos:GetXY() end
-	if px and issecretvalue and issecretvalue(px) then px, py = nil, nil end
-	local p = ns.Nearest(RUNE_CITIES[map], px and px * 100, py and py * 100)
-	markedPoint = UiMapPoint.CreateFromCoordinates(map, p[1] / 100, p[2] / 100)
-	C_Map.SetUserWaypoint(markedPoint)
-	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+	if not pos then return end
+	local x, y = pos:GetXY()
+	if not x or (issecretvalue and issecretvalue(x)) then return end
+	return x * 100, y * 100
 end
--- Remove our waypoint, unless the player has since replaced it with their own.
-local function ClearVendorMark()
-	if not markedPoint then return end
-	local wp = C_Map.GetUserWaypoint()
-	if wp and wp.uiMapID == markedPoint.uiMapID and math.abs(wp.position.x - markedPoint.position.x) < 1e-4
-		and math.abs(wp.position.y - markedPoint.position.y) < 1e-4 then
-		C_Map.ClearUserWaypoint()
+-- Map size in yards, from its corners' world positions (world x runs north, y runs west).
+local mapSizes = {}
+local function MapSize(map)
+	if not mapSizes[map] then
+		local _, tl = C_Map.GetWorldPosFromMapPos(map, CreateVector2D(0, 0))
+		local _, br = C_Map.GetWorldPosFromMapPos(map, CreateVector2D(1, 1))
+		if not (tl and br) then return end
+		mapSizes[map] = { tl.y - br.y, tl.x - br.x }
 	end
-	markedPoint = nil
+	return mapSizes[map][1], mapSizes[map][2]
 end
--- Warn once per city visit for each rune at or below db.alertAt while you know a spell that uses it.
-local function CheckRunes()
-	if not db.runeAlert then ClearVendorMark() return end
+
+---------------------------------------------------------------- vendor pins (our own, so the player's waypoint is untouched)
+local pin -- { map=, x=, y= } in percent while a vendor is marked
+local mapPin, miniPin
+local function PinFrame(parent, size)
+	local f = CreateFrame("Frame", nil, parent)
+	f:SetSize(size, size)
+	f:SetFrameStrata("HIGH")
+	f.icon = f:CreateTexture(nil, "OVERLAY")
+	f.icon:SetAllPoints()
+	f.icon:SetTexture(C_Item.GetItemIconByID(RUNE_PORT))
+	f:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(L["Rune vendor"])
+		GameTooltip:Show()
+	end)
+	f:SetScript("OnLeave", GameTooltip_Hide)
+	f:Hide()
+	return f
+end
+-- Minimap view radius in yards. Fallback: HereBeDragons' diameters per zoom level, halved.
+local MINIMAP_SIZE = { indoor = { 300, 240, 180, 120, 80, 50 }, outdoor = { 466.67, 400, 333.33, 266.67, 200, 133.33 } }
+local function MinimapRadius()
+	if C_Minimap and C_Minimap.GetViewRadius then return C_Minimap.GetViewRadius() end
+	return MINIMAP_SIZE[IsIndoors() and "indoor" or "outdoor"][Minimap:GetZoom() + 1] / 2
+end
+local function UpdateMiniPin(self)
+	local px, py = PlayerPos(pin.map)
+	local w, h = MapSize(pin.map)
+	if not (px and w) then self.icon:SetAlpha(0) return end
+	local facing = GetCVar("rotateMinimap") == "1" and GetPlayerFacing() or nil
+	if facing and issecretvalue and issecretvalue(facing) then facing = nil end
+	local x, y, edge = ns.MinimapOffset((pin.x - px) * w / 100, (pin.y - py) * h / 100,
+		MinimapRadius(), Minimap:GetWidth() / 2, facing)
+	self:SetPoint("CENTER", Minimap, "CENTER", x, y)
+	self.icon:SetAlpha(edge and 0.6 or 1) -- dimmed on the edge: the vendor is further than the minimap shows
+end
+local function UpdateMapPin()
+	local canvas = WorldMapFrame:GetCanvas()
+	local show = pin and WorldMapFrame:IsShown() and WorldMapFrame:GetMapID() == pin.map
+	mapPin:SetShown(show)
+	if not show then return end
+	-- keep the same on-screen size as the map zooms
+	local scale = WorldMapFrame.ScrollContainer.GetCanvasScale and WorldMapFrame.ScrollContainer:GetCanvasScale()
+	if not scale or scale <= 0 then scale = 1 end
+	mapPin:SetScale(1 / scale)
+	-- anchor offsets are in the pin's own (scaled) units, so convert from canvas units
+	mapPin:SetPoint("CENTER", canvas, "TOPLEFT",
+		canvas:GetWidth() * pin.x / 100 * scale, -canvas:GetHeight() * pin.y / 100 * scale)
+end
+local function ShowVendorPin(map, x, y)
+	if not mapPin then
+		mapPin = PinFrame(WorldMapFrame:GetCanvas(), 20)
+		WorldMapFrame:HookScript("OnUpdate", UpdateMapPin) -- cheap, and catches map changes, resizes and zoom
+		miniPin = PinFrame(Minimap, 16)
+		miniPin:SetScript("OnUpdate", UpdateMiniPin) -- only runs while shown
+	end
+	pin = { map = map, x = x, y = y }
+	miniPin:Show()
+	UpdateMapPin()
+end
+local function HideVendorPin()
+	pin = nil
+	if mapPin then mapPin:Hide() miniPin:Hide() end
+end
+
+-- Where the player is, if near a rune vendor: map, nearest vendor point. Cities count everywhere on
+-- their map; zone vendors only inside the vendor's town.
+local function VendorArea()
 	local map = C_Map.GetBestMapForUnit("player")
+	local points = map and (RUNE_CITIES[map] or RUNE_TOWNS[map])
+	if not points or (points.faction and points.faction ~= UnitFactionGroup("player")) then return end
+	local px, py = PlayerPos(map)
+	local w, h = MapSize(map)
+	local p = ns.Nearest(points, px, py, w or 0, h or 0)
+	if RUNE_CITIES[map] then return map, p end
+	-- the game names the current subzone only as translated text, so compare it to the town's translated name
+	if points.area and GetSubZoneText() == C_Map.GetAreaInfo(points.area) then return map, p end
+end
+
+-- Warn once per visit for each rune at or below db.alertAt while you know a spell that uses it.
+-- Runs only on game events (zone/subzone changes, bag changes, vendor closed), never on a timer.
+local function CheckRunes()
+	if not db.runeAlert then HideVendorPin() return end
+	local map, p = VendorArea()
+	local inArea = map ~= nil
 	local runes = {
 		{ item = RUNE_TELE, known = KnowsAny(TELEPORTS), count = C_Item.GetItemCount(RUNE_TELE) },
 		{ item = RUNE_PORT, known = KnowsAny(PORTALS), count = C_Item.GetItemCount(RUNE_PORT) },
 	}
-	local alerts = ns.RunesToAlert(map and RUNE_CITIES[map], runes, alertedRunes, db.alertAt)
-	if #alerts > 0 and db.alertMap then MarkVendor(map) end
-	-- restocked every low rune, or left the city: nothing left to point at
-	if next(alertedRunes) == nil then ClearVendorMark() end
+	local alerts = ns.RunesToAlert(inArea, runes, alertedRunes, db.alertAt)
+	if #alerts > 0 and db.alertMap then ShowVendorPin(map, p[1], p[2]) end
+	-- restocked every low rune, or left the area: nothing left to point at
+	if next(alertedRunes) == nil then HideVendorPin() end
 	for _, item in ipairs(alerts) do
 		local it = Item:CreateFromItemID(item) -- waits for the localized item name to load
 		it:ContinueOnItemLoad(function()
@@ -586,7 +685,7 @@ local function BuildSettings()
 		L["Use ElvUI's button and panel look when ElvUI is installed. Takes effect after /reload."])
 
 	local alert = Settings.CreateCheckbox(cat, Add("runeAlert", L["Low-rune alert"]),
-		L["Warn when you're in a city with a reagent vendor and are low on Runes of Teleportation or Runes of Portals."])
+		L["Warn when you're near a rune vendor (anywhere in a capital city, or close to a vendor in a town) and are low on Runes of Teleportation or Runes of Portals."])
 	local function alertOn() return db.runeAlert end
 	-- indented under the alert checkbox, and greyed out while it's off
 	local function Sub(init) init:SetParentInitializer(alert, alertOn) end
@@ -596,7 +695,7 @@ local function BuildSettings()
 		L["Show the alert in the middle of the screen, like a raid warning."]))
 	Sub(Settings.CreateCheckbox(cat, Add("alertChat", L["Alert in chat"]), L["Print the alert in the chat window."]))
 	Sub(Settings.CreateCheckbox(cat, Add("alertMap", L["Mark vendor on map"]),
-		L["Put a map and minimap waypoint on the nearest rune vendor. Replaces any waypoint you've set."]))
+		L["Show a marker for the nearest rune vendor on your map and minimap. Your own waypoint isn't touched."]))
 	local sounds = {} -- skip any sound this client doesn't have
 	for _, s in ipairs(SOUNDS) do
 		if s[1] == "NONE" or SOUNDKIT[s[1]] then sounds[#sounds + 1] = s end
@@ -640,7 +739,8 @@ ev:SetScript("OnEvent", function(self, event, arg)
 		self:UnregisterEvent("ADDON_LOADED")
 		for _, e in ipairs({ "PLAYER_LOGIN", "SPELLS_CHANGED", "BAG_UPDATE_DELAYED",
 			"PLAYER_REGEN_ENABLED", "TRADE_SHOW", "TRADE_CLOSED", "GLOBAL_MOUSE_DOWN",
-			"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "MERCHANT_SHOW", "MERCHANT_CLOSED" }) do
+			"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "MERCHANT_SHOW", "MERCHANT_CLOSED",
+			"ZONE_CHANGED", "ZONE_CHANGED_INDOORS" }) do
 			self:RegisterEvent(e)
 		end
 	elseif event == "GLOBAL_MOUSE_DOWN" then
@@ -649,7 +749,8 @@ ev:SetScript("OnEvent", function(self, event, arg)
 		OnMerchantShow()
 	elseif event == "MERCHANT_CLOSED" then
 		StaticPopup_Hide("BUTTONSFOREVER_BUY_RUNES")
-	elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+		CheckRunes() -- done shopping: clear the vendor pin if the runes are restocked
+	elseif event == "PLAYER_ENTERING_WORLD" or event:find("^ZONE_CHANGED") then
 		CheckRunes()
 	elseif event == "BAG_UPDATE_DELAYED" then
 		UpdateCounts()

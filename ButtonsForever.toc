@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: ButtonsForever
-## Version: 1.0.2
+## Version: 1.0.3
 ## Notes: Mage teleport/portal flyouts plus a trade-window helper for conjuring and trading food/water.
 ## SavedVariables: ButtonsForeverDB
 ## OptionalDeps: ElvUI

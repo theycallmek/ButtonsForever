@@ -1,10 +1,10 @@
 # ButtonsForever
 
-[![CurseForge](https://img.shields.io/badge/CurseForge-ButtonsForever-f16436)](https://www.curseforge.com/wow/addons/buttonsforever)
+[![CurseForge](https://img.shields.io/badge/CurseForge-ButtonsForever-f16436)](https://www.curseforge.com/wow/addons/buttonsforever/preview)
 [![Wago](https://img.shields.io/badge/Wago-ButtonsForever-c1272d)](https://addons.wago.io/addons/buttonsforever)
 [![GitHub release](https://img.shields.io/github/v/release/theycallmek/ButtonsForever)](https://github.com/theycallmek/ButtonsForever/releases/latest)
 
-Download from [CurseForge](https://www.curseforge.com/wow/addons/buttonsforever), [Wago](https://addons.wago.io/addons/buttonsforever) or [GitHub Releases](https://github.com/theycallmek/ButtonsForever/releases/latest).
+Download from [CurseForge](https://www.curseforge.com/wow/addons/buttonsforever/preview), [Wago](https://addons.wago.io/addons/buttonsforever) or [GitHub Releases](https://github.com/theycallmek/ButtonsForever/releases/latest).
 
 A mage addon for **World of Warcraft: Forever**. It folds every city teleport and portal into two flyout buttons, adds a trade window helper for conjuring and handing out food and water, and keeps you stocked on runes with a low-rune alert and auto-buy.
 
@@ -21,11 +21,17 @@ The addon does nothing on characters that aren't mages.
 - **Shift-drag** either button to move the bar. Its position is saved.
 
 ### Low-rune alert
-When you're in a city with a rune vendor (Stormwind, Ironforge, Darnassus, Orgrimmar, Undercity or Thunder Bluff) and running low on a rune you need, the addon tells you to restock:
+When you're near a rune vendor and running low on a rune you need, the addon tells you to restock. "Near" means:
 
-- **When it fires:** when you have that many of a rune or fewer, 1 by default (you pick 0–20). It checks when you arrive in the city and whenever your bags change, so using a rune there can set it off.
+- **Capital cities:** anywhere in Stormwind, Ironforge, Darnassus, Orgrimmar, Undercity or Thunder Bluff.
+- **Towns:** when you walk into the town of a rune vendor in Elwynn Forest, Duskwood, Swamp of Sorrows, Wetlands, Alterac Mountains, Arathi Highlands, Hillsbrad Foothills, The Hinterlands, The Barrens, Ashenvale, Thousand Needles, Stonetalon Mountains, Feralas, Dustwallow Marsh and Silithus. Entering the zone alone doesn't set it off; it goes off when you walk into the vendor's town, such as Crossroads or Astranaar. Towns are recognised by ID, so this works in every language.
+- **Your faction only:** vendors in the other faction's cities and towns never alert you, since you can't buy from them. Neutral vendors in Alterac Mountains, Arathi Highlands and Silithus alert everyone.
+
+How it works:
+
+- **When it fires:** when you have that many of a rune or fewer, 1 by default (you pick 0–20). It checks only on game events, with no timers running: when you enter a zone, city or area, when your bags change (so using a rune there can set it off), and when you close a vendor.
 - **The warning:** "You have 1 Rune of Teleportation left. Buy more from a reagent vendor." It can show in the middle of the screen like a raid warning, in chat, or both, with a sound you choose.
-- **Vendor waypoint:** it puts a waypoint on your world map and minimap at the nearest rune vendor, with the minimap arrow pointing to it. The waypoint is removed once you've restocked above the threshold or left the city.
+- **Vendor marker:** it puts a rune icon on your world map and minimap at the nearest rune vendor. If the vendor is beyond the minimap's range, the icon sits dimmed on the minimap's edge, pointing the way. It's the addon's own marker, so any waypoint you've set is left alone. It's removed once you've restocked above the threshold or left the area.
 - It warns once per visit for each rune, and only about runes used by spells you know. A mage who hasn't learned portals yet won't be warned about Runes of Portals.
 
 ### Auto-buy runes
@@ -61,10 +67,10 @@ Type `/bf` (or `/buttonsforever`), or go to **Esc → Options → AddOns → But
 | Trade window flyout direction | Up, Down, Left or Right (default Right) |
 | Bar strata / Trade window strata | Which interface layer each part is drawn on, from Background to Tooltip (defaults Medium and High). Raise it if other frames cover the buttons |
 | Match ElvUI style | Uses ElvUI's look when ElvUI is installed. Needs `/reload` |
-| **Low-rune alert** | Turns the city rune warning on or off (default on). The settings below it grey out while it's off |
+| **Low-rune alert** | Turns the rune warning on or off (default on). The settings below it grey out while it's off |
 | Alert when runes are at or below | Warn at this many runes or fewer, 0–20 (default 1). 0 warns only when you're out |
 | Alert on screen / Alert in chat | Where the warning shows: the middle of the screen like a raid warning, the chat window, or both (both on by default) |
-| Mark vendor on map | Waypoint on the world map and minimap at the nearest rune vendor (default on). It replaces any waypoint you'd set, since the game allows only one, but a waypoint you set afterwards is left alone |
+| Mark vendor on map | A marker on the world map and minimap at the nearest rune vendor (default on). Your own waypoint isn't touched |
 | Alert sound | None, Raid warning (default), Ready check, Alarm clock, Whisper or Map ping. Picking one plays it |
 | Test alert sound | A **Play** button that plays the chosen sound |
 | **Auto-buy runes** | Turns auto-buy on or off (default on). The settings below it grey out while it's off |
@@ -87,7 +93,7 @@ The spell terms in each translation were checked against wowhead's in-game names
 |---|---|
 | `ButtonsForever.toc`, `ButtonsForever_Forever.toc` | Addon metadata, Interface `16001`. Identical; the `_Forever` copy tells WoWUp it's a Forever addon, so keep both in sync |
 | `Locales.lua` | Translated UI text |
-| `Logic.lua` | Pure logic with no game API: rank picking, stack picking, icon cropping, rune alert and auto-buy amounts, nearest vendor |
+| `Logic.lua` | Pure logic with no game API: rank picking, stack picking, icon cropping, rune alert and auto-buy amounts, vendor distance, minimap marker position |
 | `ButtonsForever.lua` | Frames, secure buttons, events, settings, and the rune vendor locations |
 
 Run the out-of-game tests with [LuaJIT](https://luajit.org/), which uses Lua 5.1 like WoW:
@@ -101,5 +107,5 @@ luajit test_locales.lua
 
 ### Notes
 - Spell and item IDs are Classic Era's, which Forever reuses. Each one has a comment naming the spell or item, and they were checked against wowhead's Forever pages.
-- Cities are recognised by map ID (Classic's 1453–1458), and the rune vendor coordinates come from wowhead's Forever data.
+- Cities and zones are recognised by map ID (Classic's), and the rune vendor coordinates come from wowhead's Forever data.
 - Forever uses retail's (Midnight's) addon restrictions. Spells are cast only from secure buttons, and the flyouts open through a secure handler, which is what lets them work in combat. Size and layout changes made in combat apply when combat ends.

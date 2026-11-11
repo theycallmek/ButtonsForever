@@ -1,6 +1,7 @@
 -- Out-of-game self-check: luajit test_logic.lua
 local ns = {}
 assert(loadfile("Logic.lua"))("ButtonsForever", ns)
+local function near(a, b) return math.abs(a - b) < 1e-9 end
 
 local RANKS = {
 	{ spell = 1, item = 101, level = 1 },
@@ -63,12 +64,23 @@ assert(ns.TopUp(3, 10) == 7 and ns.TopUp(12, 10) == 0 and ns.TopUp(0, 0) == 0, "
 
 -- Nearest
 local pts = { { 10, 10 }, { 50, 50 }, { 90, 20 } }
-assert(ns.Nearest(pts, 48, 55) == pts[2], "nearest point")
-assert(ns.Nearest(pts, 85, 10) == pts[3], "nearest point 2")
+assert(ns.Nearest(pts, 48, 55, 1000, 1000) == pts[2], "nearest point")
+assert(ns.Nearest(pts, 85, 10, 1000, 1000) == pts[3], "nearest point 2")
 assert(ns.Nearest(pts, nil, nil) == pts[1], "no position: first point")
+local _, d = ns.Nearest({ { 50, 50 } }, 47, 46, 1000, 1000)
+assert(near(d, 50), "distance in yards: 30 east, 40 north of a 1000-yard map = 50")
+
+-- MinimapOffset
+local x, y, edge = ns.MinimapOffset(50, 0, 100, 70)
+assert(near(x, 35) and near(y, 0) and not edge, "east is right")
+x, y = ns.MinimapOffset(0, -50, 100, 70)
+assert(near(x, 0) and near(y, 35), "north is up")
+x, y, edge = ns.MinimapOffset(300, 0, 100, 70)
+assert(near(x, 70) and edge, "clamped to the edge")
+x, y = ns.MinimapOffset(0, -50, 100, 70, math.pi / 2) -- facing west, vendor north: shows to the right
+assert(near(x, 35) and near(y, 0), "rotating minimap")
 
 -- IconCoords
-local function near(a, b) return math.abs(a - b) < 1e-9 end
 local l, r, t, b = ns.IconCoords(36, 36, 0)
 assert(l == 0 and r == 1 and t == 0 and b == 1, "square, no zoom")
 l, r, t, b = ns.IconCoords(36, 36, 0.1)
