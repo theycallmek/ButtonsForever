@@ -6,7 +6,7 @@
 
 Download from [CurseForge](https://www.curseforge.com/wow/addons/buttonsforever), [Wago](https://addons.wago.io/addons/buttonsforever) or [GitHub Releases](https://github.com/theycallmek/ButtonsForever/releases/latest).
 
-A mage addon for **World of Warcraft: Forever**. It folds every city teleport and portal into two flyout buttons, and adds a trade window helper for conjuring and handing out food and water.
+A mage addon for **World of Warcraft: Forever**. It folds every city teleport and portal into two flyout buttons, adds a trade window helper for conjuring and handing out food and water, and keeps you stocked on runes with a low-rune alert and auto-buy.
 
 The addon does nothing on characters that aren't mages.
 
@@ -19,6 +19,22 @@ The addon does nothing on characters that aren't mages.
 - They work in combat.
 - Each button shows how many runes you have: Rune of Teleportation for teleports, Rune of Portals for portals. The number turns red at 0.
 - **Shift-drag** either button to move the bar. Its position is saved.
+
+### Low-rune alert
+When you're in a city with a rune vendor (Stormwind, Ironforge, Darnassus, Orgrimmar, Undercity or Thunder Bluff) and running low on a rune you need, the addon tells you to restock:
+
+- **When it fires:** when you have that many of a rune or fewer, 1 by default (you pick 0–20). It checks when you arrive in the city and whenever your bags change, so using a rune there can set it off.
+- **The warning:** "You have 1 Rune of Teleportation left. Buy more from a reagent vendor." It can show in the middle of the screen like a raid warning, in chat, or both, with a sound you choose.
+- **Vendor waypoint:** it puts a waypoint on your world map and minimap at the nearest rune vendor, with the minimap arrow pointing to it. The waypoint is removed once you've restocked above the threshold or left the city.
+- It warns once per visit for each rune, and only about runes used by spells you know. A mage who hasn't learned portals yet won't be warned about Runes of Portals.
+
+### Auto-buy runes
+When you open a vendor that sells runes, the addon tops you up to the amount you set, 10 of each by default:
+
+- **Only the difference:** with 3 Runes of Teleportation in your bags and a target of 10, it buys 7. If you already have enough, nothing happens.
+- **Confirmation:** by default a popup shows what it will buy and the total price, for example "Buy 7 x Rune of Teleportation, 10 x Rune of Portals for …?" with the price filled in. Turn the confirmation off to buy straight away. Either way, chat says what was bought.
+- **Gold:** if you can't afford it, it buys nothing and says how much gold is needed.
+- **Your spells:** it only buys runes for spells you know. Set an amount to 0 to never buy that rune.
 
 ### Trade window helper
 Open a trade with someone and a panel appears beside the trade window:
@@ -45,6 +61,15 @@ Type `/bf` (or `/buttonsforever`), or go to **Esc → Options → AddOns → But
 | Trade window flyout direction | Up, Down, Left or Right (default Right) |
 | Bar strata / Trade window strata | Which interface layer each part is drawn on, from Background to Tooltip (defaults Medium and High). Raise it if other frames cover the buttons |
 | Match ElvUI style | Uses ElvUI's look when ElvUI is installed. Needs `/reload` |
+| **Low-rune alert** | Turns the city rune warning on or off (default on). The settings below it grey out while it's off |
+| Alert when runes are at or below | Warn at this many runes or fewer, 0–20 (default 1). 0 warns only when you're out |
+| Alert on screen / Alert in chat | Where the warning shows: the middle of the screen like a raid warning, the chat window, or both (both on by default) |
+| Mark vendor on map | Waypoint on the world map and minimap at the nearest rune vendor (default on). It replaces any waypoint you'd set, since the game allows only one, but a waypoint you set afterwards is left alone |
+| Alert sound | None, Raid warning (default), Ready check, Alarm clock, Whisper or Map ping. Picking one plays it |
+| Test alert sound | A **Play** button that plays the chosen sound |
+| **Auto-buy runes** | Turns auto-buy on or off (default on). The settings below it grey out while it's off |
+| Auto-buy Runes of Teleportation / Portals | How many of each to keep, 0–100 (default 10). 0 never buys that rune |
+| Confirm auto-buy | Ask before buying (default on) |
 
 ## Installation
 
@@ -62,8 +87,8 @@ The spell terms in each translation were checked against wowhead's in-game names
 |---|---|
 | `ButtonsForever.toc`, `ButtonsForever_Forever.toc` | Addon metadata, Interface `16001`. Identical; the `_Forever` copy tells WoWUp it's a Forever addon, so keep both in sync |
 | `Locales.lua` | Translated UI text |
-| `Logic.lua` | Pure logic with no game API: rank picking, stack picking, icon cropping |
-| `ButtonsForever.lua` | Frames, secure buttons, events and settings |
+| `Logic.lua` | Pure logic with no game API: rank picking, stack picking, icon cropping, rune alert and auto-buy amounts, nearest vendor |
+| `ButtonsForever.lua` | Frames, secure buttons, events, settings, and the rune vendor locations |
 
 Run the out-of-game tests with [LuaJIT](https://luajit.org/), which uses Lua 5.1 like WoW:
 
@@ -76,4 +101,5 @@ luajit test_locales.lua
 
 ### Notes
 - Spell and item IDs are Classic Era's, which Forever reuses. Each one has a comment naming the spell or item, and they were checked against wowhead's Forever pages.
+- Cities are recognised by map ID (Classic's 1453–1458), and the rune vendor coordinates come from wowhead's Forever data.
 - Forever uses retail's (Midnight's) addon restrictions. Spells are cast only from secure buttons, and the flyouts open through a secure handler, which is what lets them work in combat. Size and layout changes made in combat apply when combat ends.

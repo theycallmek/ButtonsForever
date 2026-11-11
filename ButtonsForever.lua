@@ -22,6 +22,24 @@ local PORTALS = {
 }
 local RUNE_TELE = 17031 -- Rune of Teleportation (item)
 local RUNE_PORT = 17032 -- Rune of Portals (item)
+-- uiMapID of each city with a rune vendor -> vendor spots on that map (x, y in percent), from wowhead Forever.
+-- Thunder Bluff's vendor walks a path, hence all the points.
+local RUNE_CITIES = {
+	[1453] = { { 55, 65.2 }, { 55.2, 66 }, { 55.8, 65.2 }, { 63, 74.8 } }, -- Stormwind City
+	[1455] = { { 30.4, 26.4 }, { 30.6, 26.4 }, { 31.2, 27.4 }, { 31.2, 27.6 } }, -- Ironforge
+	[1457] = { { 34, 9.4 }, { 34, 9.6 }, { 34.6, 9.8 } }, -- Darnassus
+	[1454] = { { 45.4, 56.4 }, { 45.4, 56.8 }, { 45.6, 56.8 } }, -- Orgrimmar
+	[1458] = { { 69.4, 39.2 }, { 69.4, 39.6 }, { 69.6, 39.2 } }, -- Undercity
+	[1456] = { -- Thunder Bluff
+		{ 36.4, 54.4 }, { 36.4, 54.6 }, { 36.4, 55.6 }, { 36.6, 53.4 }, { 36.6, 53.8 }, { 36.6, 55.4 }, { 36.6, 55.8 },
+		{ 36.8, 57 }, { 37, 52.2 }, { 37.2, 58.4 }, { 37.2, 58.6 }, { 37.4, 51.4 }, { 37.4, 59.8 }, { 37.6, 51.6 },
+		{ 37.6, 60.2 }, { 38, 61.2 }, { 38.4, 51.2 }, { 38.4, 61.8 }, { 38.6, 62.2 }, { 38.8, 51.4 }, { 39.4, 52 },
+		{ 39.4, 62.6 }, { 39.6, 52 }, { 39.6, 63 }, { 40, 62.2 }, { 40.4, 53.2 }, { 40.4, 53.6 }, { 40.6, 53.4 },
+		{ 40.6, 61.8 }, { 41.4, 54.4 }, { 41.4, 54.6 }, { 41.4, 60.4 }, { 41.4, 60.8 }, { 41.6, 54.4 }, { 41.6, 60.8 },
+		{ 41.8, 59.8 }, { 42, 55.4 }, { 42.4, 56 }, { 42.4, 56.6 }, { 42.4, 58.2 }, { 42.4, 59.2 }, { 42.6, 55.4 },
+		{ 42.6, 56.4 }, { 42.6, 58.2 }, { 42.6, 58.8 }, { 42.6, 59.6 }, { 42.8, 56.6 }, { 43.6, 57.4 }, { 43.6, 57.8 },
+	},
+}
 
 -- spell = conjure spell, item = what it makes, level = that item's required level. Lowest rank first.
 local WATER_RANKS = {
@@ -46,7 +64,14 @@ local MAX_TRADE_SLOTS = 6 -- slot 7 is "will not be traded"
 local GAP = 3
 local DEFAULTS = { width = 36, height = 36, zoom = 8, elvui = true, water = 1, food = 1,
 	barDir = "UP", tradeDir = "RIGHT", barStrata = "MEDIUM", tradeStrata = "HIGH",
-	showBar = true, showTrade = true, mouseover = false }
+	showBar = true, showTrade = true, mouseover = false,
+	runeAlert = true, alertWarning = true, alertChat = true, alertSound = "RAID_WARNING", alertMap = true,
+	alertAt = 1, autoBuy = true, buyTele = 10, buyPort = 10, buyConfirm = true }
+-- alert sound choices: SOUNDKIT key, label. "NONE" plays nothing.
+local SOUNDS = {
+	{ "NONE", L["None"] }, { "RAID_WARNING", L["Raid warning"] }, { "READY_CHECK", L["Ready check"] },
+	{ "ALARM_CLOCK_WARNING_3", L["Alarm clock"] }, { "TELL_MESSAGE", L["Whisper"] }, { "MAP_PING", L["Map ping"] },
+}
 -- flyout direction -> button point, toggle point, x sign, y sign
 local DIRS = {
 	UP = { "BOTTOM", "TOP", 0, 1 },
@@ -386,26 +411,151 @@ local function SyncTrade()
 	trade:SetShown(show)
 end
 
+---------------------------------------------------------------- out-of-runes alert
+local alertedRunes = {}
+local markedPoint -- the vendor waypoint we set, nil when none
+local function KnowsAny(spells)
+	for _, s in ipairs(spells) do if Known(s) then return true end end
+	return false
+end
+local function PlayAlertSound(key)
+	local id = SOUNDKIT[key]
+	if id then PlaySound(id) end
+end
+-- Built-in map waypoint (world map + minimap) on the vendor spot nearest the player.
+-- shortcut: replaces any waypoint the player had set (the game only allows one), and doesn't restore it.
+local function MarkVendor(map)
+	if not (C_Map.CanSetUserWaypointOnMap and C_Map.CanSetUserWaypointOnMap(map)) then return end
+	local pos = C_Map.GetPlayerMapPosition(map, "player")
+	local px, py
+	if pos then px, py = pos:GetXY() end
+	if px and issecretvalue and issecretvalue(px) then px, py = nil, nil end
+	local p = ns.Nearest(RUNE_CITIES[map], px and px * 100, py and py * 100)
+	markedPoint = UiMapPoint.CreateFromCoordinates(map, p[1] / 100, p[2] / 100)
+	C_Map.SetUserWaypoint(markedPoint)
+	C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+end
+-- Remove our waypoint, unless the player has since replaced it with their own.
+local function ClearVendorMark()
+	if not markedPoint then return end
+	local wp = C_Map.GetUserWaypoint()
+	if wp and wp.uiMapID == markedPoint.uiMapID and math.abs(wp.position.x - markedPoint.position.x) < 1e-4
+		and math.abs(wp.position.y - markedPoint.position.y) < 1e-4 then
+		C_Map.ClearUserWaypoint()
+	end
+	markedPoint = nil
+end
+-- Warn once per city visit for each rune at or below db.alertAt while you know a spell that uses it.
+local function CheckRunes()
+	if not db.runeAlert then ClearVendorMark() return end
+	local map = C_Map.GetBestMapForUnit("player")
+	local runes = {
+		{ item = RUNE_TELE, known = KnowsAny(TELEPORTS), count = C_Item.GetItemCount(RUNE_TELE) },
+		{ item = RUNE_PORT, known = KnowsAny(PORTALS), count = C_Item.GetItemCount(RUNE_PORT) },
+	}
+	local alerts = ns.RunesToAlert(map and RUNE_CITIES[map], runes, alertedRunes, db.alertAt)
+	if #alerts > 0 and db.alertMap then MarkVendor(map) end
+	-- restocked every low rune, or left the city: nothing left to point at
+	if next(alertedRunes) == nil then ClearVendorMark() end
+	for _, item in ipairs(alerts) do
+		local it = Item:CreateFromItemID(item) -- waits for the localized item name to load
+		it:ContinueOnItemLoad(function()
+			local msg = L["You have %d %s left. Buy more from a reagent vendor."]:format(C_Item.GetItemCount(item), it:GetItemName())
+			if db.alertWarning then RaidNotice_AddMessage(RaidWarningFrame, msg, ChatTypeInfo.RAID_WARNING) end
+			if db.alertChat then print("|cff69ccf0ButtonsForever|r: " .. msg) end
+			PlayAlertSound(db.alertSound)
+		end)
+	end
+end
+
+---------------------------------------------------------------- rune auto-buy
+local function MerchantItem(i) -- name, price per stack, items per stack
+	if C_MerchantFrame and C_MerchantFrame.GetItemInfo then
+		local t = C_MerchantFrame.GetItemInfo(i)
+		if t then return t.name, t.price, t.stackCount end
+	elseif GetMerchantItemInfo then
+		local name, _, price, stack = GetMerchantItemInfo(i)
+		return name, price, stack
+	end
+end
+-- Runes this vendor sells that we're short of: { {index, itemID, name, qty}, ... }, total cost in copper.
+local function PlanRuneBuys()
+	local want = {
+		[RUNE_TELE] = KnowsAny(TELEPORTS) and db.buyTele or 0,
+		[RUNE_PORT] = KnowsAny(PORTALS) and db.buyPort or 0,
+	}
+	local plan, cost = {}, 0
+	for i = 1, GetMerchantNumItems() do
+		local id = GetMerchantItemID(i)
+		local qty = id and want[id] and ns.TopUp(C_Item.GetItemCount(id), want[id]) or 0
+		if qty > 0 then
+			want[id] = nil -- a vendor listing it twice shouldn't double the order
+			local name, price, stack = MerchantItem(i)
+			-- shortcut: assumes the item is sold singly (runes are); a multi-item stack would be priced per stack
+			cost = cost + (price or 0) * qty / math.max(stack or 1, 1)
+			plan[#plan + 1] = { index = i, itemID = id, name = name or "?", qty = qty }
+		end
+	end
+	return plan, cost
+end
+local function Describe(plan)
+	local parts = {}
+	for _, p in ipairs(plan) do parts[#parts + 1] = p.qty .. " x " .. p.name end
+	return table.concat(parts, ", ")
+end
+local function BuyRunes()
+	local plan, cost = PlanRuneBuys() -- re-planned so a changed bag or a closed vendor is handled
+	if #plan == 0 then return end
+	if GetMoney() < cost then
+		print("|cff69ccf0ButtonsForever|r: " .. L["Not enough money to auto-buy runes (%s needed)."]:format(GetMoneyString(cost)))
+		return
+	end
+	for _, p in ipairs(plan) do
+		local max = C_Item.GetItemMaxStackSizeByID(p.itemID) or 1
+		local left = p.qty
+		while left > 0 do -- one call buys at most a stack
+			local n = math.min(left, max)
+			BuyMerchantItem(p.index, n)
+			left = left - n
+		end
+	end
+	print("|cff69ccf0ButtonsForever|r: " .. L["Bought %s."]:format(Describe(plan)))
+end
+StaticPopupDialogs.BUTTONSFOREVER_BUY_RUNES = {
+	text = "%s", button1 = YES, button2 = NO, OnAccept = BuyRunes,
+	timeout = 0, hideOnEscape = true, whileDead = true, preferredIndex = 3,
+}
+local function OnMerchantShow()
+	if not db.autoBuy then return end
+	local plan, cost = PlanRuneBuys()
+	if #plan == 0 then return end
+	if db.buyConfirm then
+		StaticPopup_Show("BUTTONSFOREVER_BUY_RUNES", L["Buy %s for %s?"]:format(Describe(plan), GetMoneyString(cost)))
+	else
+		BuyRunes()
+	end
+end
+
 ---------------------------------------------------------------- settings (Esc > Options > AddOns, or /bf)
 local function BuildSettings()
-	local cat = Settings.RegisterVerticalLayoutCategory(addonName)
+	local cat, layout = Settings.RegisterVerticalLayoutCategory(addonName)
 	local function Apply()
 		RefreshAll()
 		SyncTrade()
 	end
-	local function Add(key, name)
+	local function Add(key, name, onChange)
 		local s = Settings.RegisterAddOnSetting(cat, addonName .. "_" .. key, key, db, type(DEFAULTS[key]), name, DEFAULTS[key])
-		s:SetValueChangedCallback(Apply)
+		s:SetValueChangedCallback(onChange or Apply)
 		return s
 	end
 	-- choices: { {value, label}, ... }
-	local function Dropdown(key, name, tip, choices)
+	local function Dropdown(key, name, tip, choices, onChange)
 		local function options()
 			local c = Settings.CreateControlTextContainer()
 			for _, choice in ipairs(choices) do c:Add(choice[1], choice[2]) end
 			return c:GetData()
 		end
-		Settings.CreateDropdown(cat, Add(key, name), options, tip)
+		return Settings.CreateDropdown(cat, Add(key, name, onChange), options, tip)
 	end
 	local DIRECTIONS = { { "UP", L["Up"] }, { "DOWN", L["Down"] }, { "LEFT", L["Left"] }, { "RIGHT", L["Right"] } }
 	local STRATAS = {
@@ -421,7 +571,7 @@ local function BuildSettings()
 	local function Slider(key, name, min, max, tip, fmt)
 		local o = Settings.CreateSliderOptions(min, max, 1)
 		o:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, fmt)
-		Settings.CreateSlider(cat, Add(key, name), o, tip)
+		return Settings.CreateSlider(cat, Add(key, name), o, tip)
 	end
 	Slider("width", L["Button width"], 16, 80, L["Width of every ButtonsForever button."])
 	Slider("height", L["Button height"], 16, 80, L["Height of every ButtonsForever button."])
@@ -434,6 +584,38 @@ local function BuildSettings()
 	Dropdown("tradeStrata", L["Trade window strata"], L["Draw layer of the trade window panel and its flyout."], STRATAS)
 	Settings.CreateCheckbox(cat, Add("elvui", L["Match ElvUI style"]),
 		L["Use ElvUI's button and panel look when ElvUI is installed. Takes effect after /reload."])
+
+	local alert = Settings.CreateCheckbox(cat, Add("runeAlert", L["Low-rune alert"]),
+		L["Warn when you're in a city with a reagent vendor and are low on Runes of Teleportation or Runes of Portals."])
+	local function alertOn() return db.runeAlert end
+	-- indented under the alert checkbox, and greyed out while it's off
+	local function Sub(init) init:SetParentInitializer(alert, alertOn) end
+	Sub(Slider("alertAt", L["Alert when runes are at or below"], 0, 20,
+		L["Warn when you have this many of a rune or fewer. 0 warns only when you're out."]))
+	Sub(Settings.CreateCheckbox(cat, Add("alertWarning", L["Alert on screen"]),
+		L["Show the alert in the middle of the screen, like a raid warning."]))
+	Sub(Settings.CreateCheckbox(cat, Add("alertChat", L["Alert in chat"]), L["Print the alert in the chat window."]))
+	Sub(Settings.CreateCheckbox(cat, Add("alertMap", L["Mark vendor on map"]),
+		L["Put a map and minimap waypoint on the nearest rune vendor. Replaces any waypoint you've set."]))
+	local sounds = {} -- skip any sound this client doesn't have
+	for _, s in ipairs(SOUNDS) do
+		if s[1] == "NONE" or SOUNDKIT[s[1]] then sounds[#sounds + 1] = s end
+	end
+	Sub(Dropdown("alertSound", L["Alert sound"], L["Sound played with the alert. Picking one plays it."], sounds,
+		function(_, value) PlayAlertSound(value) end))
+	local test = CreateSettingsButtonInitializer(L["Test alert sound"], L["Play"],
+		function() PlayAlertSound(db.alertSound) end, L["Play the chosen alert sound."], true)
+	layout:AddInitializer(test)
+	Sub(test)
+
+	local buy = Settings.CreateCheckbox(cat, Add("autoBuy", L["Auto-buy runes"]),
+		L["Top up your runes when you open a vendor that sells them."])
+	local function buyOn() return db.autoBuy end
+	local function BuySub(init) init:SetParentInitializer(buy, buyOn) end
+	local buyTip = L["When a vendor that sells them is open, buy enough to have this many. 0 turns it off."]
+	BuySub(Slider("buyTele", L["Auto-buy Runes of Teleportation"], 0, 100, buyTip))
+	BuySub(Slider("buyPort", L["Auto-buy Runes of Portals"], 0, 100, buyTip))
+	BuySub(Settings.CreateCheckbox(cat, Add("buyConfirm", L["Confirm auto-buy"]), L["Ask before auto-buying runes."]))
 	Settings.RegisterAddOnCategory(cat)
 
 	SLASH_BUTTONSFOREVER1, SLASH_BUTTONSFOREVER2 = "/bf", "/buttonsforever"
@@ -457,13 +639,21 @@ ev:SetScript("OnEvent", function(self, event, arg)
 		BuildSettings()
 		self:UnregisterEvent("ADDON_LOADED")
 		for _, e in ipairs({ "PLAYER_LOGIN", "SPELLS_CHANGED", "BAG_UPDATE_DELAYED",
-			"PLAYER_REGEN_ENABLED", "TRADE_SHOW", "TRADE_CLOSED", "GLOBAL_MOUSE_DOWN" }) do
+			"PLAYER_REGEN_ENABLED", "TRADE_SHOW", "TRADE_CLOSED", "GLOBAL_MOUSE_DOWN",
+			"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "MERCHANT_SHOW", "MERCHANT_CLOSED" }) do
 			self:RegisterEvent(e)
 		end
 	elseif event == "GLOBAL_MOUSE_DOWN" then
 		CloseFlyoutsOnOutsideClick()
+	elseif event == "MERCHANT_SHOW" then
+		OnMerchantShow()
+	elseif event == "MERCHANT_CLOSED" then
+		StaticPopup_Hide("BUTTONSFOREVER_BUY_RUNES")
+	elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+		CheckRunes()
 	elseif event == "BAG_UPDATE_DELAYED" then
 		UpdateCounts()
+		CheckRunes() -- catches using your last rune while in a city
 	elseif event == "TRADE_SHOW" or event == "TRADE_CLOSED" then
 		wantTrade = event == "TRADE_SHOW"
 		SyncTrade()

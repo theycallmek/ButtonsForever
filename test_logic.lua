@@ -44,6 +44,29 @@ local all = ns.PickStacks(items, RANKS, 6)
 assert(#all == 4 and all[1].itemID == 104, "no level = no filter, highest first")
 assert(#ns.PickStacks(items, RANKS, 6, 0) == 0, "level 0 can use nothing")
 
+-- RunesToAlert
+local function rune(item, known, c) return { item = item, known = known, count = c } end
+local alerted = {}
+local a = ns.RunesToAlert(true, { rune(1, true, 0), rune(2, true, 5), rune(3, false, 0) }, alerted, 0)
+assert(#a == 1 and a[1] == 1, "only known runes at 0")
+assert(#ns.RunesToAlert(true, { rune(1, true, 0) }, alerted, 0) == 0, "once per visit")
+ns.RunesToAlert(false, { rune(1, true, 0) }, alerted, 0)
+assert(#ns.RunesToAlert(true, { rune(1, true, 0) }, alerted, 0) == 1, "again after leaving the city")
+ns.RunesToAlert(true, { rune(1, true, 3) }, alerted, 0)
+assert(#ns.RunesToAlert(true, { rune(1, true, 0) }, alerted, 0) == 1, "again after restocking and running out")
+assert(#ns.RunesToAlert(false, { rune(1, true, 0) }, {}, 0) == 0, "never outside a city")
+assert(#ns.RunesToAlert(true, { rune(1, true, 1) }, {}, 1) == 1, "at the threshold alerts")
+assert(#ns.RunesToAlert(true, { rune(1, true, 2) }, {}, 1) == 0, "above the threshold doesn't")
+
+-- TopUp
+assert(ns.TopUp(3, 10) == 7 and ns.TopUp(12, 10) == 0 and ns.TopUp(0, 0) == 0, "buy up to the target")
+
+-- Nearest
+local pts = { { 10, 10 }, { 50, 50 }, { 90, 20 } }
+assert(ns.Nearest(pts, 48, 55) == pts[2], "nearest point")
+assert(ns.Nearest(pts, 85, 10) == pts[3], "nearest point 2")
+assert(ns.Nearest(pts, nil, nil) == pts[1], "no position: first point")
+
 -- IconCoords
 local function near(a, b) return math.abs(a - b) < 1e-9 end
 local l, r, t, b = ns.IconCoords(36, 36, 0)

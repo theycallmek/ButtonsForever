@@ -40,6 +40,30 @@ end
 
 -- items: { {itemID, count, maxStack, bag, slot}, ... }
 -- Returns up to n full stacks from `ranks` usable at `level`, highest rank first.
+-- runes: { {item=, known=, count=}, ... }; alerted: items already alerted this city visit (updated here).
+-- Returns the items to alert about now: known, at or below `threshold` in bags, in a city, not yet alerted this visit.
+function ns.RunesToAlert(inCity, runes, alerted, threshold)
+	local out = {}
+	for _, r in ipairs(runes) do
+		if not inCity or r.count > threshold then alerted[r.item] = nil
+		elseif r.known and not alerted[r.item] then
+			alerted[r.item] = true
+			out[#out + 1] = r.item
+		end
+	end
+	return out
+end
+function ns.TopUp(have, want) return math.max(0, want - have) end -- how many to buy to reach `want`
+-- points: { {x, y}, ... }; returns the point nearest (x, y), or the first point if x is nil.
+function ns.Nearest(points, x, y)
+	if not x then return points[1] end
+	local best, bestD
+	for _, p in ipairs(points) do
+		local d = (p[1] - x) ^ 2 + (p[2] - y) ^ 2
+		if not bestD or d < bestD then best, bestD = p, d end
+	end
+	return best
+end
 function ns.PickStacks(items, ranks, n, level)
 	local rankLevel = {}
 	for _, r in ipairs(ranks) do
