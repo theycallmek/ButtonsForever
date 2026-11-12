@@ -1,10 +1,10 @@
 # ButtonsForever
 
-[![CurseForge](https://img.shields.io/badge/CurseForge-ButtonsForever-f16436)](https://www.curseforge.com/wow/addons/buttonsforever/preview)
+[![CurseForge](https://img.shields.io/badge/CurseForge-ButtonsForever-f16436)](https://www.curseforge.com/wow/addons/buttonsforever)
 [![Wago](https://img.shields.io/badge/Wago-ButtonsForever-c1272d)](https://addons.wago.io/addons/buttonsforever)
 [![GitHub release](https://img.shields.io/github/v/release/theycallmek/ButtonsForever)](https://github.com/theycallmek/ButtonsForever/releases/latest)
 
-Download from [CurseForge](https://www.curseforge.com/wow/addons/buttonsforever/preview), [Wago](https://addons.wago.io/addons/buttonsforever) or [GitHub Releases](https://github.com/theycallmek/ButtonsForever/releases/latest).
+Download from [CurseForge](https://www.curseforge.com/wow/addons/buttonsforever), [Wago](https://addons.wago.io/addons/buttonsforever) or [GitHub Releases](https://github.com/theycallmek/ButtonsForever/releases/latest).
 
 A mage addon for **World of Warcraft: Forever**. It folds every city teleport and portal into two flyout buttons, adds a trade window helper for conjuring and handing out food and water, and keeps you stocked on runes with a low-rune alert and auto-buy.
 
