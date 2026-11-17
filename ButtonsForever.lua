@@ -22,16 +22,57 @@ local PORTALS = {
 }
 local RUNE_TELE = 17031 -- Rune of Teleportation (item)
 local RUNE_PORT = 17032 -- Rune of Portals (item)
+local ARCANE_POWDER = 17020 -- Arcane Powder (item)
+-- Reagents the low-reagent alert and auto-buy look after. spells: what uses it (it's only bought or alerted
+-- about if you know one); buy: db key of the amount to keep; at: db key of its alert level (runes share
+-- alertAt); on: db key of its own on/off switch.
+local REAGENTS = {
+	{ item = RUNE_TELE, spells = TELEPORTS, buy = "buyTele" },
+	{ item = RUNE_PORT, spells = PORTALS, buy = "buyPort" },
+	{ item = ARCANE_POWDER, spells = { 23028 }, on = "powder", at = "powderAt", buy = "buyPowder" }, -- Arcane Brilliance
+}
+-- Buff reminder. Ranks lowest first. Any armor counts; Arcane Brilliance counts as Arcane Intellect.
+local ARMORS = {
+	FROST = { 168, 7300, 7301, 7302, 7320, 10219, 10220 }, -- Frost Armor 1-3, then Ice Armor 1-4
+	MAGE = { 6117, 22782, 22783 }, -- Mage Armor 1-3
+}
+local INTELLECT = { 1459, 1460, 1461, 10156, 10157, 23028 } -- Arcane Intellect 1-5, Arcane Brilliance
+-- Forever's mage scrolls (from Bundle of Scrolls, wowhead Forever), by required level. Shown only while in your bags.
+local SCROLLS = {
+	213564, -- Scroll of Minor Evocation (15)
+	274947, -- Scroll of Imbue Lesser Flame (15)
+	275067, -- Scroll of Imbue Chillknife (15)
+	275069, -- Scroll of Rat Familiar (15)
+	217495, -- Scroll of Cryoblast (25)
+	213550, -- Scroll of Polymorph: Odd Melon (25)
+	277483, -- Scroll of Frog Familiar (25)
+	277484, -- Scroll of Confuse Beast (25)
+	277485, -- Scroll of Imbue Frost (25)
+	277486, -- Scroll of Imbue Striking (25)
+	277487, -- Scroll of Imbue Baleflame (25)
+	277488, -- Scroll of Imbue Iceknife (25)
+	277489, -- Scroll of Imbue Spark (25)
+	213548, -- Scroll of Liminal Passage (40)
+	277491, -- Scroll of Rebuke Elemental (40)
+	277492, -- Scroll of Khadgar's Unlocking (40)
+	277493, -- Scroll of Cat Familiar (40)
+	277494, -- Scroll of Imbue Accuracy (40)
+	277495, -- Scroll of Imbue Quickening (40)
+	277496, -- Scroll of Imbue Balefrost (40)
+	277497, -- Scroll of Imbue Flame (40)
+	277498, -- Scroll of Imbue Manablade (40)
+}
 -- uiMapID of each city with a rune vendor -> vendor spots on that map (x, y in percent), from wowhead Forever.
 -- faction: only that faction is alerted (the other can't buy there); none = neutral, everyone is.
+-- npcs: the vendors there (NPC ID, English name), from wowhead Forever's "sold by" for Rune of Teleportation.
 -- Thunder Bluff's vendor walks a path, hence all the points.
 local RUNE_CITIES = {
-	[1453] = { faction = "Alliance", { 55, 65.2 }, { 55.2, 66 }, { 55.8, 65.2 }, { 63, 74.8 } }, -- Stormwind City
-	[1455] = { faction = "Alliance", { 30.4, 26.4 }, { 30.6, 26.4 }, { 31.2, 27.4 }, { 31.2, 27.6 } }, -- Ironforge
-	[1457] = { faction = "Alliance", { 34, 9.4 }, { 34, 9.6 }, { 34.6, 9.8 } }, -- Darnassus
-	[1454] = { faction = "Horde", { 45.4, 56.4 }, { 45.4, 56.8 }, { 45.6, 56.8 } }, -- Orgrimmar
-	[1458] = { faction = "Horde", { 69.4, 39.2 }, { 69.4, 39.6 }, { 69.6, 39.2 } }, -- Undercity
-	[1456] = { faction = "Horde", -- Thunder Bluff
+	[1453] = { npcs = { { 1257, "Keldric Boucher" }, { 1275, "Kyra Boucher" }, { 1307, "Charys Yserian" }, { 1308, "Owen Vaughn" }, { 1351, "Brother Cassius" } }, faction = "Alliance", { 55, 65.2 }, { 55.2, 66 }, { 55.8, 65.2 }, { 63, 74.8 } }, -- Stormwind City
+	[1455] = { npcs = { { 5110, "Barim Jurgenstaad" }, { 5151, "Ginny Longberry" } }, faction = "Alliance", { 30.4, 26.4 }, { 30.6, 26.4 }, { 31.2, 27.4 }, { 31.2, 27.6 } }, -- Ironforge
+	[1457] = { npcs = { { 3562, "Alaindia" }, { 4220, "Cyroen" } }, faction = "Alliance", { 34, 9.4 }, { 34, 9.6 }, { 34.6, 9.8 } }, -- Darnassus
+	[1454] = { npcs = { { 3323, "Horthus" }, { 3335, "Hagrus" }, { 3351, "Magenius" } }, faction = "Horde", { 45.4, 56.4 }, { 45.4, 56.8 }, { 45.6, 56.8 } }, -- Orgrimmar
+	[1458] = { npcs = { { 4562, "Thomas Mordan" }, { 4575, "Hannah Akeley" } }, faction = "Horde", { 69.4, 39.2 }, { 69.4, 39.6 }, { 69.6, 39.2 } }, -- Undercity
+	[1456] = { npcs = { { 8361, "Chepi" } }, faction = "Horde", -- Thunder Bluff
 		{ 36.4, 54.4 }, { 36.4, 54.6 }, { 36.4, 55.6 }, { 36.6, 53.4 }, { 36.6, 53.8 }, { 36.6, 55.4 }, { 36.6, 55.8 },
 		{ 36.8, 57 }, { 37, 52.2 }, { 37.2, 58.4 }, { 37.2, 58.6 }, { 37.4, 51.4 }, { 37.4, 59.8 }, { 37.6, 51.6 },
 		{ 37.6, 60.2 }, { 38, 61.2 }, { 38.4, 51.2 }, { 38.4, 61.8 }, { 38.6, 62.2 }, { 38.8, 51.4 }, { 39.4, 52 },
@@ -46,21 +87,21 @@ local RUNE_CITIES = {
 -- there's no polling. Winterspring (58.8, 78.4) and Riverglades (62.2, 85.8, Alliance) also have vendors
 -- but are left out until their town's area ID is known.
 local RUNE_TOWNS = {
-	[1429] = { area = 91, faction = "Alliance", { 64.8, 69.2 } }, -- Elwynn Forest (Tower of Azora)
-	[1431] = { area = 42, faction = "Alliance", { 76, 45.2 } }, -- Duskwood (Darkshire)
-	[1435] = { area = 75, faction = "Horde", { 45.8, 53 } }, -- Swamp of Sorrows (Stonard)
-	[1437] = { area = 150, faction = "Alliance", { 8.4, 56.4 }, { 8.4, 56.6 } }, -- Wetlands (Menethil Harbor)
-	[1416] = { area = 279, { 14, 63.4 }, { 14.2, 63.6 } }, -- Alterac Mountains (Dalaran, neutral; town inferred from coords)
-	[1417] = { area = 324, { 27, 58.8 } }, -- Arathi Highlands (Stromgarde Keep, neutral; town inferred from coords)
-	[1424] = { area = 271, faction = "Alliance", { 50.8, 59 } }, -- Hillsbrad Foothills (Southshore)
-	[1425] = { area = 3317, faction = "Horde", { 78.8, 78.4 }, { 78.8, 78.6 } }, -- The Hinterlands (Revantusk Village)
-	[1413] = { area = 380, faction = "Horde", { 51.4, 30.2 } }, -- The Barrens (The Crossroads)
-	[1440] = { area = 415, faction = "Alliance", { 35, 48.4 }, { 35, 48.6 } }, -- Ashenvale (Astranaar)
-	[1441] = { area = 484, faction = "Horde", { 45, 50.4 }, { 45.2, 50.6 } }, -- Thousand Needles (Freewind Post)
-	[1442] = { area = 460, faction = "Horde", { 47.4, 61.8 }, { 47.6, 61.6 } }, -- Stonetalon Mountains (Sun Rock Retreat)
-	[1444] = { area = 1116, faction = "Alliance", { 30.8, 42 } }, -- Feralas (Feathermoon Stronghold)
-	[1445] = { area = 496, faction = "Horde", { 36.4, 30.4 }, { 36.4, 30.6 }, { 36.6, 30.4 }, { 36.6, 30.6 } }, -- Dustwallow Marsh (Brackenwall Village)
-	[1451] = { area = 3425, { 48.8, 37 } }, -- Silithus (Cenarion Hold, neutral)
+	[1429] = { npcs = { { 958, "Dawn Brightstar" } }, area = 91, faction = "Alliance", { 64.8, 69.2 } }, -- Elwynn Forest (Tower of Azora)
+	[1431] = { npcs = { { 1673, "Alyssa Eva" } }, area = 42, faction = "Alliance", { 76, 45.2 } }, -- Duskwood (Darkshire)
+	[1435] = { npcs = { { 983, "Thultazor" } }, area = 75, faction = "Horde", { 45.8, 53 } }, -- Swamp of Sorrows (Stonard)
+	[1437] = { npcs = { { 1463, "Falkan Armonis" } }, area = 150, faction = "Alliance", { 8.4, 56.4 }, { 8.4, 56.6 } }, -- Wetlands (Menethil Harbor)
+	[1416] = { npcs = { { 29537, "Darahir" } }, area = 279, { 14, 63.4 }, { 14.2, 63.6 } }, -- Alterac Mountains (Dalaran, neutral; town inferred from coords)
+	[1417] = { npcs = { { 2805, "Deneb Walker" } }, area = 324, { 27, 58.8 } }, -- Arathi Highlands (Stromgarde Keep, neutral; town inferred from coords)
+	[1424] = { npcs = { { 3542, "Jaysin Lanyda" } }, area = 271, faction = "Alliance", { 50.8, 59 } }, -- Hillsbrad Foothills (Southshore)
+	[1425] = { npcs = { { 14739, "Mystic Yayo'jin" } }, area = 3317, faction = "Horde", { 78.8, 78.4 }, { 78.8, 78.6 } }, -- The Hinterlands (Revantusk Village)
+	[1413] = { npcs = { { 3490, "Hula'mahi" } }, area = 380, faction = "Horde", { 51.4, 30.2 } }, -- The Barrens (The Crossroads)
+	[1440] = { npcs = { { 3970, "Llana" } }, area = 415, faction = "Alliance", { 35, 48.4 }, { 35, 48.6 } }, -- Ashenvale (Astranaar)
+	[1441] = { npcs = { { 4878, "Montarr" } }, area = 484, faction = "Horde", { 45, 50.4 }, { 45.2, 50.6 } }, -- Thousand Needles (Freewind Post)
+	[1442] = { npcs = { { 4083, "Jeeda" } }, area = 460, faction = "Horde", { 47.4, 61.8 }, { 47.6, 61.6 } }, -- Stonetalon Mountains (Sun Rock Retreat)
+	[1444] = { npcs = { { 3700, "Jadenvis Seawatcher" } }, area = 1116, faction = "Alliance", { 30.8, 42 } }, -- Feralas (Feathermoon Stronghold)
+	[1445] = { npcs = { { 13476, "Balai Lok'Wein" } }, area = 496, faction = "Horde", { 36.4, 30.4 }, { 36.4, 30.6 }, { 36.6, 30.4 }, { 36.6, 30.6 } }, -- Dustwallow Marsh (Brackenwall Village)
+	[1451] = { npcs = { { 15175, "Khur Hornstriker" } }, area = 3425, { 48.8, 37 } }, -- Silithus (Cenarion Hold, neutral)
 }
 
 -- spell = conjure spell, item = what it makes, level = that item's required level. Lowest rank first.
@@ -83,12 +124,15 @@ local FOOD_RANKS = {
 	{ spell = 28612, item = 22895, level = 55 }, -- Conjure Food (Rank 7) -> Conjured Cinnamon Roll
 }
 local MAX_TRADE_SLOTS = 6 -- slot 7 is "will not be traded"
-local GAP = 3
 local DEFAULTS = { width = 36, height = 36, zoom = 8, elvui = true, water = 1, food = 1,
 	barDir = "UP", tradeDir = "RIGHT", barStrata = "MEDIUM", tradeStrata = "HIGH",
-	showBar = true, showTrade = true, mouseover = false,
+	spacing = 3, barLayout = "HORIZONTAL",
+	showBar = true, showTrade = true, mouseover = false, showScrolls = true, scrollSort = "LEVEL",
 	runeAlert = true, alertWarning = true, alertChat = true, alertSound = "RAID_WARNING", alertMap = true,
-	alertAt = 1, autoBuy = true, buyTele = 10, buyPort = 10, buyConfirm = true }
+	alertAt = 1, vendorMark = 1, autoBuy = true, buyTele = 10, buyPort = 10, buyConfirm = true,
+	powder = true, powderAt = 1, buyPowder = 20,
+	buffRemind = true, remindArmor = true, armorType = "FROST", remindInt = true,
+	buffWidth = 36, buffHeight = 36, buffZoom = 8, buffStrata = "MEDIUM" }
 -- alert sound choices: SOUNDKIT key, label. "NONE" plays nothing.
 local SOUNDS = {
 	{ "NONE", L["None"] }, { "RAID_WARNING", L["Raid warning"] }, { "READY_CHECK", L["Ready check"] },
@@ -110,7 +154,7 @@ local function Known(spell)
 end
 
 local db, E -- E = ElvUI engine when ElvUI styling is active
-local buttons, spellButtons, flyouts = {}, {}, {}
+local buttons, spellButtons, itemButtons, flyouts = {}, {}, {}, {}
 local bar, trade
 
 local function ShowSpellTip(self)
@@ -162,9 +206,28 @@ local function SpellButton(parent, spell, countFn)
 	return b
 end
 
+-- Secure button that uses item `id` from the bags; shown only while you have one.
+local function ItemButton(parent, id)
+	local b = NewButton("SecureActionButtonTemplate", parent, ItemCounter(id))
+	b:RegisterForClicks("AnyUp", "AnyDown")
+	b:SetAttribute("type", "item")
+	b:SetAttribute("item", "item:" .. id)
+	b.item = id
+	b.icon:SetTexture(C_Item.GetItemIconByID(id))
+	b:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetItemByID(self.item)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", GameTooltip_Hide)
+	itemButtons[#itemButtons + 1] = b
+	return b
+end
+
 -- Toggle button + secure flyout. Opening/closing runs in a secure snippet so it works in combat.
 -- dirKey: the db setting holding this flyout's direction
-local function MakeFlyout(name, parent, spells, label, dirKey, countFn)
+-- newButton: optional (flyout, entry) -> button; default is a spell button with countFn
+local function MakeFlyout(name, parent, spells, label, dirKey, countFn, newButton)
 	local t = NewButton("SecureHandlerClickTemplate", parent, countFn, name)
 	t:RegisterForClicks("AnyUp")
 	t.label, t.dirKey, t.buttons = label, dirKey, {}
@@ -179,7 +242,7 @@ local function MakeFlyout(name, parent, spells, label, dirKey, countFn)
 	]])
 
 	for i, spell in ipairs(spells) do
-		local b = SpellButton(fly, spell, countFn)
+		local b = newButton and newButton(fly, spell) or SpellButton(fly, spell, countFn)
 		-- close the flyout after a cast; only on the up-click so a key-down cast isn't cut off
 		t:WrapScript(b, "OnClick", "if not down then return nil, true end", "self:GetParent():Hide()")
 		t.buttons[i] = b
@@ -227,7 +290,7 @@ local dirty = false
 local function RefreshAll()
 	if InCombatLockdown() then dirty = true return end
 	dirty = false
-	local w, h = db.width, db.height
+	local w, h, GAP = db.width, db.height, db.spacing
 	local cl, cr, ct, cb = ns.IconCoords(w, h, db.zoom / 100)
 	for _, b in ipairs(buttons) do
 		b:SetSize(w, h)
@@ -238,11 +301,12 @@ local function RefreshAll()
 		b:SetShown(info ~= nil)
 		if info then b.icon:SetTexture(info.iconID) end
 	end
+	for _, b in ipairs(itemButtons) do b:SetShown(C_Item.GetItemCount(b.item) > 0) end
 	for _, t in ipairs(flyouts) do
 		local d = DIRS[db[t.dirKey]] or DIRS[DEFAULTS[t.dirKey]]
 		local step = (d[3] ~= 0 and w or h) + GAP
 		local n = 0
-		for _, b in ipairs(t.buttons) do
+		for _, b in ipairs(t.order and t.order() or t.buttons) do
 			if b:IsShown() then
 				n = n + 1
 				local off = GAP + (n - 1) * step
@@ -251,9 +315,19 @@ local function RefreshAll()
 				if n == 1 then t.icon:SetTexture(b.icon:GetTexture()) end
 			end
 		end
-		t:SetShown(n > 0)
+		t:SetShown(n > 0 and (not t.showKey or db[t.showKey]))
 	end
-	bar:SetSize(2 * w + GAP, h)
+	-- line up the bar's visible buttons with no gaps (e.g. scrolls before you've learned portals)
+	local vertical, shown = db.barLayout == "VERTICAL", 0
+	for _, t in ipairs(bar.toggles) do
+		if t:IsShown() then
+			t:ClearAllPoints()
+			if vertical then t:SetPoint("TOP", 0, -shown * (h + GAP)) else t:SetPoint("LEFT", shown * (w + GAP), 0) end
+			shown = shown + 1
+		end
+	end
+	local n = math.max(1, shown)
+	if vertical then bar:SetSize(w, n * (h + GAP) - GAP) else bar:SetSize(n * (w + GAP) - GAP, h) end
 	bar:SetFrameStrata(db.barStrata)
 	bar:SetShown(db.showBar)
 	bar:UpdateFade()
@@ -271,22 +345,37 @@ local function BuildBar()
 	if p then bar:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else bar:SetPoint("CENTER", 0, -150) end
 
 	local tele = MakeFlyout("ButtonsForeverTeleports", bar, TELEPORTS, L["Teleports"], "barDir", ItemCounter(RUNE_TELE))
-	tele:SetPoint("LEFT")
 	local port = MakeFlyout("ButtonsForeverPortals", bar, PORTALS, L["Portals"], "barDir", ItemCounter(RUNE_PORT))
-	port:SetPoint("LEFT", tele, "RIGHT", GAP, 0)
+	local function scrollCount()
+		local n = 0
+		for _, id in ipairs(SCROLLS) do n = n + C_Item.GetItemCount(id) end
+		return n
+	end
+	local scrolls = MakeFlyout("ButtonsForeverScrolls", bar, SCROLLS, L["Scrolls"], "barDir", scrollCount, ItemButton)
+	scrolls.showKey = "showScrolls"
+	-- flyout order per the scrollSort setting; LEVEL is SCROLLS' own order
+	local sortKeys = {
+		NAME = function(b) return C_Item.GetItemNameByID(b.item) or "" end, -- bag items are cached, so names are there
+		COUNT = function(b) return -C_Item.GetItemCount(b.item) end,
+	}
+	function scrolls.order()
+		local key = sortKeys[db.scrollSort]
+		return key and ns.SortBy(scrolls.buttons, key) or scrolls.buttons
+	end
+	bar.toggles = { tele, port, scrolls } -- placed by RefreshAll
 
 	-- Mouseover setting: invisible until hovered or a flyout is open. Alpha is allowed in combat,
 	-- and hidden-by-alpha buttons still take clicks, like other addons' mouseover bars.
 	function bar:UpdateFade()
 		local show = not db.mouseover
-		for _, t in ipairs({ tele, port }) do
+		for _, t in ipairs(self.toggles) do
 			if t:IsMouseOver() or t.fly:IsShown() then show = true end
 		end
 		self:SetAlpha(show and 1 or 0)
 	end
 	local function Fade() bar:UpdateFade() end
 
-	for _, t in ipairs({ tele, port }) do
+	for _, t in ipairs(bar.toggles) do
 		t:HookScript("OnEnter", Fade)
 		t:HookScript("OnLeave", Fade)
 		t.fly:HookScript("OnShow", Fade)
@@ -439,7 +528,16 @@ local function KnowsAny(spells)
 	for _, s in ipairs(spells) do if Known(s) then return true end end
 	return false
 end
+-- Sounds other addons (ElvUI, SharedMedia packs...) share through LibSharedMedia, if one of them loaded it.
+local LSM_PREFIX = "LSM:"
+local function SharedMedia() return LibStub and LibStub("LibSharedMedia-3.0", true) end
 local function PlayAlertSound(key)
+	if key:sub(1, #LSM_PREFIX) == LSM_PREFIX then
+		local lsm = SharedMedia()
+		local file = lsm and lsm:Fetch("sound", key:sub(#LSM_PREFIX + 1), true)
+		if file then PlaySoundFile(file, "Master") return end
+		key = "RAID_WARNING" -- the addon that had this sound is gone
+	end
 	local id = SOUNDKIT[key]
 	if id then PlaySound(id) end
 end
@@ -464,8 +562,71 @@ local function MapSize(map)
 end
 
 ---------------------------------------------------------------- vendor pins (our own, so the player's waypoint is untouched)
-local pin -- { map=, x=, y= } in percent while a vendor is marked
-local mapPin, miniPin
+local pin -- { map=, x=, y=, npcs= } (x, y in percent) while a vendor is marked
+local mapPin, miniPin, clicker
+-- An NPC's name in the client's language: the game's creature cache if it has it (the game is always right),
+-- else our translated list (Locales.lua), else English.
+local function NpcName(id, english)
+	local tip = C_TooltipInfo and C_TooltipInfo.GetHyperlink(("unit:Creature-0-0-0-0-%d-0"):format(id))
+	local line = tip and tip.lines and tip.lines[1]
+	local name = line and line.leftText
+	if name and name ~= "" and not (issecretvalue and issecretvalue(name)) then return name end
+	return ns.VendorNames[id] or english
+end
+-- Names of the marked area's vendors. A city can have several; we don't know which stands at which spot.
+local function VendorNames()
+	local out = {}
+	for i, n in ipairs(pin and pin.npcs or {}) do out[i] = NpcName(n[1], n[2]) end
+	return out
+end
+local function VendorTip(owner)
+	local names = VendorNames()
+	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+	GameTooltip:SetText(#names == 1 and names[1] or L["Rune vendor"])
+	if #names > 1 then
+		for _, n in ipairs(names) do GameTooltip:AddLine(n, 1, 1, 1) end
+	end
+	if #names > 0 and not InCombatLockdown() then
+		GameTooltip:AddLine(db.vendorMark > 0 and L["Click to target and mark."] or L["Click to target."], 0, 1, 0)
+	end
+	GameTooltip:Show()
+end
+-- Targeting needs a secure click, and secure frames can't move in combat. So the pins stay plain frames, and
+-- out of combat this one secure button is laid over whichever pin the mouse is on.
+local function ShowClicker(over)
+	if not clicker then
+		clicker = CreateFrame("Button", "ButtonsForeverVendorTarget", UIParent, "SecureActionButtonTemplate")
+		clicker:SetFrameStrata("TOOLTIP")
+		clicker:RegisterForClicks("AnyUp")
+		clicker:SetAttribute("type", "macro")
+		clicker:SetScript("OnEnter", VendorTip)
+		clicker:SetScript("OnLeave", function(self)
+			GameTooltip_Hide()
+			if not InCombatLockdown() then self:Hide() end -- otherwise PLAYER_REGEN_ENABLED hides it
+		end)
+		clicker:SetScript("PostClick", function(self)
+			local t = UnitName("target")
+			if issecretvalue and issecretvalue(t) then return end
+			if not tContains(self.vendors, t) then
+				print("|cff69ccf0ButtonsForever|r: " .. L["Too far away to target: %s"]:format(table.concat(self.vendors, ", ")))
+				return
+			end
+			local mark = db.vendorMark
+			if mark > 0 and GetRaidTargetIndex("target") ~= mark then SetRaidTarget("target", mark) end
+		end)
+	end
+	local names = VendorNames()
+	if #names == 0 then return end
+	local s = over:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	local x, y = over:GetCenter()
+	clicker:ClearAllPoints()
+	clicker:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x * s, y * s)
+	clicker:SetSize(over:GetWidth() * s, over:GetHeight() * s)
+	clicker.vendors = names
+	-- one line per vendor: whichever is in range gets targeted
+	clicker:SetAttribute("macrotext", "/targetexact " .. table.concat(names, "\n/targetexact "))
+	clicker:Show()
+end
 local function PinFrame(parent, size)
 	local f = CreateFrame("Frame", nil, parent)
 	f:SetSize(size, size)
@@ -474,9 +635,8 @@ local function PinFrame(parent, size)
 	f.icon:SetAllPoints()
 	f.icon:SetTexture(C_Item.GetItemIconByID(RUNE_PORT))
 	f:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(L["Rune vendor"])
-		GameTooltip:Show()
+		VendorTip(self)
+		if not InCombatLockdown() then ShowClicker(self) end
 	end)
 	f:SetScript("OnLeave", GameTooltip_Hide)
 	f:Hide()
@@ -512,20 +672,21 @@ local function UpdateMapPin()
 	mapPin:SetPoint("CENTER", canvas, "TOPLEFT",
 		canvas:GetWidth() * pin.x / 100 * scale, -canvas:GetHeight() * pin.y / 100 * scale)
 end
-local function ShowVendorPin(map, x, y)
+local function ShowVendorPin(map, p)
 	if not mapPin then
 		mapPin = PinFrame(WorldMapFrame:GetCanvas(), 20)
 		WorldMapFrame:HookScript("OnUpdate", UpdateMapPin) -- cheap, and catches map changes, resizes and zoom
 		miniPin = PinFrame(Minimap, 16)
 		miniPin:SetScript("OnUpdate", UpdateMiniPin) -- only runs while shown
 	end
-	pin = { map = map, x = x, y = y }
+	pin = { map = map, x = p[1], y = p[2], npcs = (RUNE_CITIES[map] or RUNE_TOWNS[map]).npcs }
 	miniPin:Show()
 	UpdateMapPin()
 end
 local function HideVendorPin()
 	pin = nil
 	if mapPin then mapPin:Hide() miniPin:Hide() end
+	if clicker and not InCombatLockdown() then clicker:Hide() end
 end
 
 -- Where the player is, if near a rune vendor: map, nearest vendor point. Cities count everywhere on
@@ -548,12 +709,13 @@ local function CheckRunes()
 	if not db.runeAlert then HideVendorPin() return end
 	local map, p = VendorArea()
 	local inArea = map ~= nil
-	local runes = {
-		{ item = RUNE_TELE, known = KnowsAny(TELEPORTS), count = C_Item.GetItemCount(RUNE_TELE) },
-		{ item = RUNE_PORT, known = KnowsAny(PORTALS), count = C_Item.GetItemCount(RUNE_PORT) },
-	}
+	local runes = {}
+	for i, r in ipairs(REAGENTS) do
+		runes[i] = { item = r.item, known = (not r.on or db[r.on]) and KnowsAny(r.spells),
+			count = C_Item.GetItemCount(r.item), at = r.at and db[r.at] }
+	end
 	local alerts = ns.RunesToAlert(inArea, runes, alertedRunes, db.alertAt)
-	if #alerts > 0 and db.alertMap then ShowVendorPin(map, p[1], p[2]) end
+	if #alerts > 0 and db.alertMap then ShowVendorPin(map, p) end
 	-- restocked every low rune, or left the area: nothing left to point at
 	if next(alertedRunes) == nil then HideVendorPin() end
 	for _, item in ipairs(alerts) do
@@ -579,10 +741,10 @@ local function MerchantItem(i) -- name, price per stack, items per stack
 end
 -- Runes this vendor sells that we're short of: { {index, itemID, name, qty}, ... }, total cost in copper.
 local function PlanRuneBuys()
-	local want = {
-		[RUNE_TELE] = KnowsAny(TELEPORTS) and db.buyTele or 0,
-		[RUNE_PORT] = KnowsAny(PORTALS) and db.buyPort or 0,
-	}
+	local want = {}
+	for _, r in ipairs(REAGENTS) do
+		want[r.item] = (not r.on or db[r.on]) and KnowsAny(r.spells) and db[r.buy] or 0
+	end
 	local plan, cost = {}, 0
 	for i = 1, GetMerchantNumItems() do
 		local id = GetMerchantItemID(i)
@@ -635,27 +797,141 @@ local function OnMerchantShow()
 	end
 end
 
+---------------------------------------------------------------- buff reminder
+-- Greyed-out icons of missing self-buffs. Plain frames (nothing to cast), so they can change in combat.
+-- Click-through, except while Shift is held so the row can be dragged.
+local buffBar
+local function BestKnown(spells) -- highest known rank, or nil
+	local best
+	for _, s in ipairs(spells) do if Known(s) then best = s end end
+	return best
+end
+local function HasAura(spells)
+	for _, s in ipairs(spells) do
+		if C_UnitAuras.GetPlayerAuraBySpellID(s) then return true end
+	end
+	return false
+end
+local function UpdateBuffs()
+	-- the game hides your auras from addons in combat, so every buff looks missing; keep what we had and recheck after
+	if not buffBar or InCombatLockdown() or UnitAffectingCombat("player") then return end
+	local missing = {}
+	if db.buffRemind and not UnitIsDeadOrGhost("player") then
+		if db.remindArmor and not (HasAura(ARMORS.FROST) or HasAura(ARMORS.MAGE)) then
+			-- the preferred armor if you know it, else whichever you do
+			local other = db.armorType == "MAGE" and "FROST" or "MAGE"
+			missing[#missing + 1] = BestKnown(ARMORS[db.armorType] or ARMORS.FROST) or BestKnown(ARMORS[other])
+		end
+		if db.remindInt and not HasAura(INTELLECT) then missing[#missing + 1] = BestKnown(INTELLECT) end
+	end
+	local w, h, GAP = db.buffWidth, db.buffHeight, db.spacing
+	local cl, cr, ct, cb = ns.IconCoords(w, h, db.buffZoom / 100)
+	local n = 0
+	for _, f in ipairs(buffBar.icons) do f:Hide() end
+	for _, spell in ipairs(missing) do -- a spell you don't know yet added nil, i.e. nothing
+		n = n + 1
+		local f = buffBar.icons[n]
+		f:SetSize(w, h)
+		f:ClearAllPoints()
+		f:SetPoint("LEFT", (n - 1) * (w + GAP), 0)
+		f.icon:SetTexture(C_Spell.GetSpellTexture(spell))
+		f.icon:SetTexCoord(cl, cr, ct, cb)
+		f:Show()
+	end
+	buffBar:SetSize(math.max(n, 1) * (w + GAP) - GAP, h)
+	buffBar:SetFrameStrata(db.buffStrata)
+	buffBar:SetShown(n > 0)
+end
+local function BuildBuffs()
+	buffBar = CreateFrame("Frame", "ButtonsForeverBuffs", UIParent)
+	buffBar:SetMovable(true)
+	buffBar:SetClampedToScreen(true)
+	buffBar:SetDontSavePosition(true)
+	local p = db.buffPoint
+	if p then buffBar:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else buffBar:SetPoint("CENTER", 0, 120) end
+	buffBar:EnableMouse(false)
+	buffBar:RegisterForDrag("LeftButton")
+	buffBar:SetScript("OnDragStart", function(self) if IsShiftKeyDown() then self:StartMoving() end end)
+	buffBar:SetScript("OnDragStop", function(self)
+		self:StopMovingOrSizing()
+		local point, _, rel, x, y = self:GetPoint()
+		db.buffPoint = { point, rel, x, y }
+	end)
+	buffBar.icons = {}
+	for i = 1, 2 do
+		local f = CreateFrame("Frame", nil, buffBar)
+		f.icon = f:CreateTexture(nil, "ARTWORK")
+		f.icon:SetAllPoints()
+		f.icon:SetDesaturated(true)
+		if E then
+			f:SetTemplate()
+			f.icon:SetInside()
+		end
+		buffBar.icons[i] = f
+	end
+	-- its own frame so UNIT_AURA only fires for the player, not every unit around
+	local watch = CreateFrame("Frame")
+	watch:RegisterUnitEvent("UNIT_AURA", "player")
+	for _, e in ipairs({ "PLAYER_DEAD", "PLAYER_ALIVE", "PLAYER_UNGHOST", "MODIFIER_STATE_CHANGED", "PLAYER_REGEN_ENABLED" }) do
+		watch:RegisterEvent(e)
+	end
+	watch:SetScript("OnEvent", function(_, event)
+		if event == "MODIFIER_STATE_CHANGED" then
+			buffBar:EnableMouse(IsShiftKeyDown()) -- click-through unless Shift is held
+			if not IsShiftKeyDown() then buffBar:StopMovingOrSizing() end
+		else
+			UpdateBuffs()
+		end
+	end)
+end
+
 ---------------------------------------------------------------- settings (Esc > Options > AddOns, or /bf)
 local function BuildSettings()
-	local cat, layout = Settings.RegisterVerticalLayoutCategory(addonName)
+	-- Pages: ButtonsForever (bar and look), then Trade Window, Reagents and Buff Reminder under it.
+	local main, cat, layout -- cat, layout: the page being filled; the helpers below add to it
+	local function Page(name)
+		if main then
+			cat, layout = Settings.RegisterVerticalLayoutSubcategory(main, name)
+		else
+			cat, layout = Settings.RegisterVerticalLayoutCategory(name)
+			main = cat
+		end
+	end
+	local function Header(text)
+		if CreateSettingsListSectionHeaderInitializer then
+			layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(text))
+		end
+	end
 	local function Apply()
 		RefreshAll()
 		SyncTrade()
+		UpdateBuffs()
 	end
 	local function Add(key, name, onChange)
 		local s = Settings.RegisterAddOnSetting(cat, addonName .. "_" .. key, key, db, type(DEFAULTS[key]), name, DEFAULTS[key])
 		s:SetValueChangedCallback(onChange or Apply)
 		return s
 	end
+	local function Checkbox(key, name, tip) return Settings.CreateCheckbox(cat, Add(key, name), tip) end
+	local function Slider(key, name, min, max, tip, fmt)
+		local o = Settings.CreateSliderOptions(min, max, 1)
+		o:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, fmt)
+		return Settings.CreateSlider(cat, Add(key, name), o, tip)
+	end
 	-- choices: { {value, label}, ... }
 	local function Dropdown(key, name, tip, choices, onChange)
 		local function options()
 			local c = Settings.CreateControlTextContainer()
-			for _, choice in ipairs(choices) do c:Add(choice[1], choice[2]) end
+			for _, choice in ipairs(type(choices) == "function" and choices() or choices) do c:Add(choice[1], choice[2]) end
 			return c:GetData()
 		end
 		return Settings.CreateDropdown(cat, Add(key, name, onChange), options, tip)
 	end
+	-- Under(parent, key)(init): indent init under parent's checkbox, greyed out while db[key] is off
+	local function Under(parent, key)
+		return function(init) init:SetParentInitializer(parent, function() return db[key] end) end
+	end
+	local function Percent(v) return v .. "%" end
 	local DIRECTIONS = { { "UP", L["Up"] }, { "DOWN", L["Down"] }, { "LEFT", L["Left"] }, { "RIGHT", L["Right"] } }
 	local STRATAS = {
 		{ "BACKGROUND", L["Background"] }, { "LOW", L["Low"] }, { "MEDIUM", L["Medium"] }, { "HIGH", L["High"] },
@@ -663,42 +939,64 @@ local function BuildSettings()
 		{ "TOOLTIP", L["Tooltip"] },
 	}
 
-	Settings.CreateCheckbox(cat, Add("showBar", L["Show flyout bar"]), L["Show the Teleport and Portal bar."])
-	Settings.CreateCheckbox(cat, Add("mouseover", L["Show bar on mouseover only"]),
-		L["Keeps the bar invisible until you move the mouse over it. It stays visible while a flyout is open."])
-	Settings.CreateCheckbox(cat, Add("showTrade", L["Show trade window panel"]), L["Show the panel beside the trade window."])
-	local function Slider(key, name, min, max, tip, fmt)
-		local o = Settings.CreateSliderOptions(min, max, 1)
-		o:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, fmt)
-		return Settings.CreateSlider(cat, Add(key, name), o, tip)
-	end
+	---------------- ButtonsForever: the flyout bar and how every button looks
+	Page(addonName)
+	Header(L["Flyout bar"])
+	local bar = Checkbox("showBar", L["Show flyout bar"], L["Show the Teleport and Portal bar."])
+	local BarSub = Under(bar, "showBar")
+	BarSub(Checkbox("mouseover", L["Show bar on mouseover only"],
+		L["Keeps the bar invisible until you move the mouse over it. It stays visible while a flyout is open."]))
+	BarSub(Dropdown("barLayout", L["Bar layout"], L["Lay the bar's buttons out in a row, or in a column with one button per row."],
+		{ { "HORIZONTAL", L["Horizontal"] }, { "VERTICAL", L["Vertical"] } }))
+	BarSub(Dropdown("barDir", L["Bar flyout direction"], L["Which way the Teleport and Portal flyouts on the bar open."], DIRECTIONS))
+	BarSub(Dropdown("barStrata", L["Bar strata"],
+		L["Draw layer of the bar and its flyouts. Higher layers appear above more of the interface."], STRATAS))
+
+	Header(L["Scrolls"])
+	local scrolls = Checkbox("showScrolls", L["Show scrolls button"],
+		L["Show the Scrolls button on the bar. It only appears while you have a scroll in your bags."])
+	Under(scrolls, "showScrolls")(Dropdown("scrollSort", L["Scroll order"], L["How scrolls are ordered in the Scrolls flyout."], {
+		{ "LEVEL", L["Required level"] }, { "NAME", L["Name"] }, { "COUNT", L["Most in bags"] },
+	}))
+
+	Header(L["Appearance"])
 	Slider("width", L["Button width"], 16, 80, L["Width of every ButtonsForever button."])
 	Slider("height", L["Button height"], 16, 80, L["Height of every ButtonsForever button."])
-	Slider("zoom", L["Icon zoom"], 0, 30, L["Crops the icon's edges. Non-square buttons crop further so icons don't stretch."],
-		function(v) return v .. "%" end)
-	Dropdown("barDir", L["Bar flyout direction"], L["Which way the Teleport and Portal flyouts on the bar open."], DIRECTIONS)
-	Dropdown("tradeDir", L["Trade window flyout direction"], L["Which way the Portal flyout on the trade window panel opens."], DIRECTIONS)
-	Dropdown("barStrata", L["Bar strata"],
-		L["Draw layer of the bar and its flyouts. Higher layers appear above more of the interface."], STRATAS)
-	Dropdown("tradeStrata", L["Trade window strata"], L["Draw layer of the trade window panel and its flyout."], STRATAS)
-	Settings.CreateCheckbox(cat, Add("elvui", L["Match ElvUI style"]),
-		L["Use ElvUI's button and panel look when ElvUI is installed. Takes effect after /reload."])
+	Slider("zoom", L["Icon zoom"], 0, 30, L["Crops the icon's edges. Non-square buttons crop further so icons don't stretch."], Percent)
+	Slider("spacing", L["Button spacing"], 0, 20,
+		L["Gap in pixels between buttons that sit next to each other: on the bar, in flyouts and in the buff reminder."])
+	Checkbox("elvui", L["Match ElvUI style"], L["Use ElvUI's button and panel look when ElvUI is installed. Takes effect after /reload."])
 
-	local alert = Settings.CreateCheckbox(cat, Add("runeAlert", L["Low-rune alert"]),
+	---------------- Trade Window
+	Page(L["Trade window"])
+	local trade = Checkbox("showTrade", L["Show trade window panel"], L["Show the panel beside the trade window."])
+	local TradeSub = Under(trade, "showTrade")
+	TradeSub(Dropdown("tradeDir", L["Trade window flyout direction"], L["Which way the Portal flyout on the trade window panel opens."], DIRECTIONS))
+	TradeSub(Dropdown("tradeStrata", L["Trade window strata"], L["Draw layer of the trade window panel and its flyout."], STRATAS))
+
+	---------------- Reagents: low-reagent alert, auto-buy, and the reagents besides runes
+	Page(L["Reagents"])
+	Header(L["Alert"])
+	local alert = Checkbox("runeAlert", L["Low-rune alert"],
 		L["Warn when you're near a rune vendor (anywhere in a capital city, or close to a vendor in a town) and are low on Runes of Teleportation or Runes of Portals."])
-	local function alertOn() return db.runeAlert end
-	-- indented under the alert checkbox, and greyed out while it's off
-	local function Sub(init) init:SetParentInitializer(alert, alertOn) end
+	local Sub = Under(alert, "runeAlert")
 	Sub(Slider("alertAt", L["Alert when runes are at or below"], 0, 20,
 		L["Warn when you have this many of a rune or fewer. 0 warns only when you're out."]))
-	Sub(Settings.CreateCheckbox(cat, Add("alertWarning", L["Alert on screen"]),
-		L["Show the alert in the middle of the screen, like a raid warning."]))
-	Sub(Settings.CreateCheckbox(cat, Add("alertChat", L["Alert in chat"]), L["Print the alert in the chat window."]))
-	Sub(Settings.CreateCheckbox(cat, Add("alertMap", L["Mark vendor on map"]),
-		L["Show a marker for the nearest rune vendor on your map and minimap. Your own waypoint isn't touched."]))
-	local sounds = {} -- skip any sound this client doesn't have
-	for _, s in ipairs(SOUNDS) do
-		if s[1] == "NONE" or SOUNDKIT[s[1]] then sounds[#sounds + 1] = s end
+	Sub(Checkbox("alertWarning", L["Alert on screen"], L["Show the alert in the middle of the screen, like a raid warning."]))
+	Sub(Checkbox("alertChat", L["Alert in chat"], L["Print the alert in the chat window."]))
+	-- built when the dropdown opens, so sounds from addons that loaded after us are included
+	local function sounds()
+		local list = {}
+		for _, s in ipairs(SOUNDS) do -- skip any sound this client doesn't have
+			if s[1] == "NONE" or SOUNDKIT[s[1]] then list[#list + 1] = s end
+		end
+		local lsm = SharedMedia()
+		if lsm then
+			for _, name in ipairs(lsm:List("sound")) do
+				if name ~= "None" then list[#list + 1] = { LSM_PREFIX .. name, name } end
+			end
+		end
+		return list
 	end
 	Sub(Dropdown("alertSound", L["Alert sound"], L["Sound played with the alert. Picking one plays it."], sounds,
 		function(_, value) PlayAlertSound(value) end))
@@ -706,19 +1004,55 @@ local function BuildSettings()
 		function() PlayAlertSound(db.alertSound) end, L["Play the chosen alert sound."], true)
 	layout:AddInitializer(test)
 	Sub(test)
+	Sub(Checkbox("alertMap", L["Mark vendor on map"],
+		L["Show a marker for the nearest rune vendor on your map and minimap. Your own waypoint isn't touched."]))
+	local marks = { { 0, L["None"] } } -- RAID_TARGET_n are the game's own translated marker names
+	for i = 1, 8 do
+		marks[#marks + 1] = { i, ("|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_%d:0|t %s"):format(i, _G["RAID_TARGET_" .. i]) }
+	end
+	Sub(Dropdown("vendorMark", L["Vendor marker"],
+		L["Clicking the vendor's map or minimap icon targets the vendor and puts this marker on them. Out of combat only."], marks))
 
-	local buy = Settings.CreateCheckbox(cat, Add("autoBuy", L["Auto-buy runes"]),
-		L["Top up your runes when you open a vendor that sells them."])
-	local function buyOn() return db.autoBuy end
-	local function BuySub(init) init:SetParentInitializer(buy, buyOn) end
+	Header(L["Auto-buy"])
+	local buy = Checkbox("autoBuy", L["Auto-buy runes"], L["Top up your runes when you open a vendor that sells them."])
+	local BuySub = Under(buy, "autoBuy")
 	local buyTip = L["When a vendor that sells them is open, buy enough to have this many. 0 turns it off."]
 	BuySub(Slider("buyTele", L["Auto-buy Runes of Teleportation"], 0, 100, buyTip))
 	BuySub(Slider("buyPort", L["Auto-buy Runes of Portals"], 0, 100, buyTip))
-	BuySub(Settings.CreateCheckbox(cat, Add("buyConfirm", L["Confirm auto-buy"]), L["Ask before auto-buying runes."]))
-	Settings.RegisterAddOnCategory(cat)
+	BuySub(Checkbox("buyConfirm", L["Confirm auto-buy"], L["Ask before auto-buying runes."]))
 
+	-- own switch, alert level (uses the low-rune alert) and amount to keep (uses auto-buy)
+	Header(L["Other reagents"])
+	local function Reagent(on, at, keep, name, tip)
+		local R = Under(Checkbox(on, name, tip), on)
+		R(Slider(at, L["Alert at or below"], 0, 20, L["Warn when you have this many or fewer. Needs Low-rune alert on."]))
+		R(Slider(keep, L["Auto-buy up to"], 0, 100,
+			L["Keep this many when a vendor that sells it is open. 0 never buys it. Needs Auto-buy runes on."]))
+	end
+	Reagent("powder", "powderAt", "buyPowder", L["Arcane Powder"],
+		L["Low-reagent alert and auto-buy for Arcane Powder, used by Arcane Brilliance."])
+
+	---------------- Buff Reminder
+	Page(L["Buff reminder"])
+	local buffs = Checkbox("buffRemind", L["Buff reminder"],
+		L["Show a greyed-out icon of your armor or Arcane Intellect while it isn't on you. Clicks pass through it; hold Shift to drag it."])
+	local BuffSub = Under(buffs, "buffRemind")
+	local spellName = C_Spell.GetSpellName
+	BuffSub(Checkbox("remindArmor", L["Remind about armor"], L["Remind you when no armor spell is on you."]))
+	BuffSub(Dropdown("armorType", L["Preferred armor"], L["Which armor the reminder shows. Any armor counts as on."], {
+		{ "FROST", spellName(168) .. " / " .. spellName(7302) }, { "MAGE", spellName(6117) },
+	}))
+	BuffSub(Checkbox("remindInt", L["Remind about %s"]:format(spellName(1459)),
+		L["Remind you when Arcane Intellect or Arcane Brilliance isn't on you."]))
+	BuffSub(Slider("buffWidth", L["Reminder icon width"], 16, 80, L["Width of the buff reminder icons."]))
+	BuffSub(Slider("buffHeight", L["Reminder icon height"], 16, 80, L["Height of the buff reminder icons."]))
+	BuffSub(Slider("buffZoom", L["Reminder icon zoom"], 0, 30,
+		L["Crops the icon's edges. Non-square buttons crop further so icons don't stretch."], Percent))
+	BuffSub(Dropdown("buffStrata", L["Reminder strata"], L["Draw layer of the buff reminder icons."], STRATAS))
+
+	Settings.RegisterAddOnCategory(main)
 	SLASH_BUTTONSFOREVER1, SLASH_BUTTONSFOREVER2 = "/bf", "/buttonsforever"
-	SlashCmdList.BUTTONSFOREVER = function() Settings.OpenToCategory(cat:GetID()) end
+	SlashCmdList.BUTTONSFOREVER = function() Settings.OpenToCategory(main:GetID()) end
 end
 
 ---------------------------------------------------------------- events
@@ -735,6 +1069,7 @@ ev:SetScript("OnEvent", function(self, event, arg)
 		if db.elvui and ElvUI then E = unpack(ElvUI) end
 		BuildBar()
 		BuildTrade()
+		BuildBuffs()
 		BuildSettings()
 		self:UnregisterEvent("ADDON_LOADED")
 		for _, e in ipairs({ "PLAYER_LOGIN", "SPELLS_CHANGED", "BAG_UPDATE_DELAYED",
@@ -753,6 +1088,7 @@ ev:SetScript("OnEvent", function(self, event, arg)
 	elseif event == "PLAYER_ENTERING_WORLD" or event:find("^ZONE_CHANGED") then
 		CheckRunes()
 	elseif event == "BAG_UPDATE_DELAYED" then
+		RefreshAll() -- show/hide scrolls (waits for combat to end)
 		UpdateCounts()
 		CheckRunes() -- catches using your last rune while in a city
 	elseif event == "TRADE_SHOW" or event == "TRADE_CLOSED" then
@@ -761,8 +1097,10 @@ ev:SetScript("OnEvent", function(self, event, arg)
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if dirty then RefreshAll() end
 		SyncTrade()
+		if clicker and not clicker:IsMouseOver() then clicker:Hide() end
 	else -- PLAYER_LOGIN, SPELLS_CHANGED
 		RefreshAll()
 		UpdateCounts()
+		UpdateBuffs() -- learning a spell can add a reminder
 	end
 end)

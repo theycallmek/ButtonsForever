@@ -54,17 +54,29 @@ function ns.PickStacks(items, ranks, n, level)
 	return out
 end
 
--- runes: { {item=, known=, count=}, ... }; alerted: items already alerted this visit (updated here).
--- Returns the items to alert about now: known, at or below `threshold` in bags, in a vendor area, not yet alerted this visit.
+-- runes: { {item=, known=, count=, at=}, ... }; alerted: items already alerted this visit (updated here).
+-- Returns the items to alert about now: known, at or below their own `at` (else `threshold`) in bags, in a
+-- vendor area, not yet alerted this visit.
 function ns.RunesToAlert(inArea, runes, alerted, threshold)
 	local out = {}
 	for _, r in ipairs(runes) do
-		if not inArea or r.count > threshold then alerted[r.item] = nil
+		if not inArea or r.count > (r.at or threshold) then alerted[r.item] = nil
 		elseif r.known and not alerted[r.item] then
 			alerted[r.item] = true
 			out[#out + 1] = r.item
 		end
 	end
+	return out
+end
+
+-- Copy of `list` sorted by key(item) ascending; ties keep their order in `list`.
+function ns.SortBy(list, key)
+	local out, k, pos = {}, {}, {}
+	for i, v in ipairs(list) do out[i], k[v], pos[v] = v, key(v), i end
+	table.sort(out, function(a, b)
+		if k[a] ~= k[b] then return k[a] < k[b] end
+		return pos[a] < pos[b]
+	end)
 	return out
 end
 

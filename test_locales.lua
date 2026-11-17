@@ -28,4 +28,15 @@ assert(loadfile("Locales.lua"))("ButtonsForever", ns)
 assert(ns.L["Teleports"] == "Teleports", "enUS falls back to the key")
 
 assert(failures == 0, failures .. " locale problems")
+
+-- every translated vendor name belongs to a vendor in ButtonsForever.lua
+local npcs = {}
+for id in io.open("ButtonsForever.lua"):read("*a"):gmatch("{ (%d+), \"") do npcs[tonumber(id)] = true end
+for _, code in ipairs({ "deDE", "esES", "esMX", "frFR", "ptBR", "ruRU", "koKR", "zhCN", "zhTW" }) do
+	GetLocale = function() return code end
+	local vns = {}
+	assert(loadfile("Locales.lua"))("ButtonsForever", vns)
+	for id in pairs(vns.VendorNames) do assert(npcs[id], code .. " vendor " .. id .. " isn't in ButtonsForever.lua") end
+end
+assert(next(ns.VendorNames) == nil, "enUS uses the English names")
 print("ok")

@@ -58,9 +58,18 @@ assert(#ns.RunesToAlert(true, { rune(1, true, 0) }, alerted, 0) == 1, "again aft
 assert(#ns.RunesToAlert(false, { rune(1, true, 0) }, {}, 0) == 0, "never outside a city")
 assert(#ns.RunesToAlert(true, { rune(1, true, 1) }, {}, 1) == 1, "at the threshold alerts")
 assert(#ns.RunesToAlert(true, { rune(1, true, 2) }, {}, 1) == 0, "above the threshold doesn't")
+local own = rune(1, true, 4)
+own.at = 5
+assert(#ns.RunesToAlert(true, { own }, {}, 1) == 1, "a reagent's own alert level wins")
 
 -- TopUp
 assert(ns.TopUp(3, 10) == 7 and ns.TopUp(12, 10) == 0 and ns.TopUp(0, 0) == 0, "buy up to the target")
+
+-- SortBy
+local srt = ns.SortBy({ "b", "a", "c", "a2" }, function(v) return v:sub(1, 1) end)
+assert(table.concat(srt, ",") == "a,a2,b,c", "sorted, ties keep order")
+srt = ns.SortBy({ 3, 1, 2 }, function(v) return -v end)
+assert(table.concat(srt, ",") == "3,2,1", "descending via negative key")
 
 -- Nearest
 local pts = { { 10, 10 }, { 50, 50 }, { 90, 20 } }
