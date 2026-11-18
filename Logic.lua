@@ -82,6 +82,26 @@ end
 
 function ns.TopUp(have, want) return math.max(0, want - have) end -- how many to buy to reach `want`
 
+-- merchant: { {id=, name=, price=, stack=}, ... } in vendor order; want: itemID -> amount to keep;
+-- have(itemID) -> count in bags. Returns { {index, itemID, name, qty}, ... } and the total cost in copper.
+function ns.PlanBuys(merchant, want, have)
+	local plan, cost, done = {}, 0, {}
+	for i, m in ipairs(merchant) do
+		local qty = m.id and want[m.id] and not done[m.id] and ns.TopUp(have(m.id), want[m.id]) or 0
+		if qty > 0 then
+			done[m.id] = true -- a vendor listing it twice shouldn't double the order
+			-- shortcut: assumes the item is sold singly (runes are); a multi-item stack would be priced per stack.
+			-- Revisit if a reagent a vendor sells in bundles is added to REAGENTS.
+			cost = cost + (m.price or 0) * qty / math.max(m.stack or 1, 1)
+			plan[#plan + 1] = { index = i, itemID = m.id, name = m.name or "?", qty = qty }
+		end
+	end
+	return plan, cost
+end
+
+-- Free bag slots needed to buy qty more of an item, given `room` left in its partial stacks.
+function ns.SlotsNeeded(qty, room, maxStack) return math.max(0, math.ceil((qty - room) / maxStack)) end
+
 -- points: { {x, y}, ... } in map percent; x, y: player in map percent; w, h: map size in yards.
 -- Returns the nearest point and its distance in yards, or the first point (and nil) if x is nil.
 function ns.Nearest(points, x, y, w, h)

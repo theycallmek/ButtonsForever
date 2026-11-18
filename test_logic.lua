@@ -65,6 +65,28 @@ assert(#ns.RunesToAlert(true, { own }, {}, 1) == 1, "a reagent's own alert level
 -- TopUp
 assert(ns.TopUp(3, 10) == 7 and ns.TopUp(12, 10) == 0 and ns.TopUp(0, 0) == 0, "buy up to the target")
 
+-- PlanBuys
+local bags = { [1] = 3, [2] = 0, [3] = 0 }
+local function have(id) return bags[id] or 0 end
+local merchant = {
+	{ id = 9, name = "Bread", price = 100, stack = 1 }, -- not wanted
+	{ id = 1, name = "Rune", price = 10, stack = 1 },
+	{ id = 1, name = "Rune", price = 10, stack = 1 }, -- listed twice
+	{ id = 2, name = "Powder", price = 50, stack = 5 }, -- priced per stack of 5
+	{ id = 3, name = "Off", price = 10, stack = 1 }, -- switched off: want 0
+	{ name = "No ID" },
+}
+local plan, cost = ns.PlanBuys(merchant, { [1] = 10, [2] = 20, [3] = 0 }, have)
+assert(#plan == 2, "only wanted items, each once")
+assert(plan[1].index == 2 and plan[1].qty == 7, "first listing, topped up")
+assert(plan[2].index == 4 and plan[2].qty == 20, "powder")
+assert(cost == 7 * 10 + 20 * 50 / 5, "price divided by stack size")
+assert(#ns.PlanBuys(merchant, {}, have) == 0, "nothing wanted, nothing bought")
+
+-- SlotsNeeded
+assert(ns.SlotsNeeded(10, 0, 20) == 1 and ns.SlotsNeeded(10, 10, 20) == 0, "fits a new stack, or the partial one")
+assert(ns.SlotsNeeded(25, 5, 20) == 1 and ns.SlotsNeeded(26, 5, 20) == 2 and ns.SlotsNeeded(0, 0, 20) == 0, "rounds up")
+
 -- SortBy
 local srt = ns.SortBy({ "b", "a", "c", "a2" }, function(v) return v:sub(1, 1) end)
 assert(table.concat(srt, ",") == "a,a2,b,c", "sorted, ties keep order")

@@ -147,8 +147,7 @@ local DIRS = {
 }
 
 local IsKnown = C_SpellBook.IsSpellKnown or IsPlayerSpell
--- spell: ID, or a name for spells whose ID we don't know yet
-local function Known(spell)
+local function Known(spell) -- spell ID -> its info if you know it, else nil
 	local info = C_Spell.GetSpellInfo(spell)
 	return info and IsKnown(info.spellID) and info or nil
 end
@@ -261,6 +260,7 @@ end
 
 -- Close open flyouts when a mouse press lands anywhere except the flyout's own buttons.
 -- shortcut: skipped in combat, where addon code can't hide secure frames; the toggle and casting still close them.
+-- Revisit if players report flyouts staying open in combat.
 local function CloseFlyoutsOnOutsideClick()
 	if InCombatLockdown() then return end
 	for _, t in ipairs(flyouts) do
@@ -336,6 +336,11 @@ local function RefreshAll()
 end
 
 ---------------------------------------------------------------- main bar
+local function SavePoint(frame, key) -- end a Shift-drag and remember where it landed
+	frame:StopMovingOrSizing()
+	local point, _, rel, x, y = frame:GetPoint()
+	db[key] = { point, rel, x, y }
+end
 local function BuildBar()
 	bar = CreateFrame("Frame", "ButtonsForeverBar", UIParent)
 	bar:SetMovable(true)
@@ -385,11 +390,7 @@ local function BuildBar()
 		t:SetScript("OnDragStart", function()
 			if IsShiftKeyDown() and not InCombatLockdown() then bar:StartMoving() end
 		end)
-		t:SetScript("OnDragStop", function()
-			bar:StopMovingOrSizing()
-			local point, _, rel, x, y = bar:GetPoint()
-			db.point = { point, rel, x, y }
-		end)
+		t:SetScript("OnDragStop", function() SavePoint(bar, "point") end)
 	end
 end
 
@@ -524,9 +525,10 @@ end
 
 ---------------------------------------------------------------- out-of-runes alert
 local alertedRunes = {}
-local function KnowsAny(spells)
-	for _, s in ipairs(spells) do if Known(s) then return true end end
-	return false
+local function BestKnown(spells) -- highest known rank, or nil
+	local best
+	for _, s in ipairs(spells) do if Known(s) then best = s end end
+	return best
 end
 -- Sounds other addons (ElvUI, SharedMedia packs...) share through LibSharedMedia, if one of them loaded it.
 local LSM_PREFIX = "LSM:"
@@ -622,7 +624,7 @@ local function ShowClicker(over)
 	clicker:ClearAllPoints()
 	clicker:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x * s, y * s)
 	clicker:SetSize(over:GetWidth() * s, over:GetHeight() * s)
-	clicker.vendors = names
+	clicker.vendors, clicker.owner = names, over
 	-- one line per vendor: whichever is in range gets targeted
 	clicker:SetAttribute("macrotext", "/targetexact " .. table.concat(names, "\n/targetexact "))
 	clicker:Show()
@@ -639,6 +641,10 @@ local function PinFrame(parent, size)
 		if not InCombatLockdown() then ShowClicker(self) end
 	end)
 	f:SetScript("OnLeave", GameTooltip_Hide)
+	-- also fires when the world map closes; an invisible clicker left behind would eat clicks under the mouse
+	f:SetScript("OnHide", function(self)
+		if clicker and clicker.owner == self and not InCombatLockdown() then clicker:Hide() end
+	end)
 	f:Hide()
 	return f
 end
@@ -711,7 +717,7 @@ local function CheckRunes()
 	local inArea = map ~= nil
 	local runes = {}
 	for i, r in ipairs(REAGENTS) do
-		runes[i] = { item = r.item, known = (not r.on or db[r.on]) and KnowsAny(r.spells),
+		runes[i] = { item = r.item, known = (not r.on or db[r.on]) and BestKnown(r.spells) ~= nil,
 			count = C_Item.GetItemCount(r.item), at = r.at and db[r.at] }
 	end
 	local alerts = ns.RunesToAlert(inArea, runes, alertedRunes, db.alertAt)
@@ -741,23 +747,28 @@ local function MerchantItem(i) -- name, price per stack, items per stack
 end
 -- Runes this vendor sells that we're short of: { {index, itemID, name, qty}, ... }, total cost in copper.
 local function PlanRuneBuys()
-	local want = {}
+	local want, merchant = {}, {}
 	for _, r in ipairs(REAGENTS) do
-		want[r.item] = (not r.on or db[r.on]) and KnowsAny(r.spells) and db[r.buy] or 0
+		want[r.item] = (not r.on or db[r.on]) and BestKnown(r.spells) and db[r.buy] or 0
 	end
-	local plan, cost = {}, 0
 	for i = 1, GetMerchantNumItems() do
-		local id = GetMerchantItemID(i)
-		local qty = id and want[id] and ns.TopUp(C_Item.GetItemCount(id), want[id]) or 0
-		if qty > 0 then
-			want[id] = nil -- a vendor listing it twice shouldn't double the order
-			local name, price, stack = MerchantItem(i)
-			-- shortcut: assumes the item is sold singly (runes are); a multi-item stack would be priced per stack
-			cost = cost + (price or 0) * qty / math.max(stack or 1, 1)
-			plan[#plan + 1] = { index = i, itemID = id, name = name or "?", qty = qty }
-		end
+		local name, price, stack = MerchantItem(i)
+		merchant[i] = { id = GetMerchantItemID(i), name = name, price = price, stack = stack }
 	end
-	return plan, cost
+	return ns.PlanBuys(merchant, want, C_Item.GetItemCount)
+end
+-- Free general bag slots, and whether the plan fits in them (partial stacks are topped up first).
+local function PlanFits(plan)
+	local room, free, need = {}, 0, 0
+	for _, it in ipairs(ScanBags()) do room[it.itemID] = (room[it.itemID] or 0) + it.maxStack - it.count end
+	for bag = 0, NUM_BAG_SLOTS do
+		local n, bagType = C_Container.GetContainerNumFreeSlots(bag)
+		if bagType == 0 then free = free + n end -- special bags (soul, ammo) can't hold reagents
+	end
+	for _, p in ipairs(plan) do
+		need = need + ns.SlotsNeeded(p.qty, room[p.itemID] or 0, C_Item.GetItemMaxStackSizeByID(p.itemID) or 1)
+	end
+	return need <= free
 end
 local function Describe(plan)
 	local parts = {}
@@ -769,6 +780,10 @@ local function BuyRunes()
 	if #plan == 0 then return end
 	if GetMoney() < cost then
 		print("|cff69ccf0ButtonsForever|r: " .. L["Not enough money to auto-buy runes (%s needed)."]:format(GetMoneyString(cost)))
+		return
+	end
+	if not PlanFits(plan) then
+		print("|cff69ccf0ButtonsForever|r: " .. L["Not enough bag space to auto-buy runes."])
 		return
 	end
 	for _, p in ipairs(plan) do
@@ -801,11 +816,6 @@ end
 -- Greyed-out icons of missing self-buffs. Plain frames (nothing to cast), so they can change in combat.
 -- Click-through, except while Shift is held so the row can be dragged.
 local buffBar
-local function BestKnown(spells) -- highest known rank, or nil
-	local best
-	for _, s in ipairs(spells) do if Known(s) then best = s end end
-	return best
-end
 local function HasAura(spells)
 	for _, s in ipairs(spells) do
 		if C_UnitAuras.GetPlayerAuraBySpellID(s) then return true end
@@ -852,11 +862,7 @@ local function BuildBuffs()
 	buffBar:EnableMouse(false)
 	buffBar:RegisterForDrag("LeftButton")
 	buffBar:SetScript("OnDragStart", function(self) if IsShiftKeyDown() then self:StartMoving() end end)
-	buffBar:SetScript("OnDragStop", function(self)
-		self:StopMovingOrSizing()
-		local point, _, rel, x, y = self:GetPoint()
-		db.buffPoint = { point, rel, x, y }
-	end)
+	buffBar:SetScript("OnDragStop", function(self) SavePoint(self, "buffPoint") end)
 	buffBar.icons = {}
 	for i = 1, 2 do
 		local f = CreateFrame("Frame", nil, buffBar)
@@ -906,6 +912,7 @@ local function BuildSettings()
 		RefreshAll()
 		SyncTrade()
 		UpdateBuffs()
+		CheckRunes() -- alert and marker settings
 	end
 	local function Add(key, name, onChange)
 		local s = Settings.RegisterAddOnSetting(cat, addonName .. "_" .. key, key, db, type(DEFAULTS[key]), name, DEFAULTS[key])
@@ -1097,7 +1104,7 @@ ev:SetScript("OnEvent", function(self, event, arg)
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if dirty then RefreshAll() end
 		SyncTrade()
-		if clicker and not clicker:IsMouseOver() then clicker:Hide() end
+		if clicker and not (clicker:IsMouseOver() and clicker.owner:IsVisible()) then clicker:Hide() end
 	else -- PLAYER_LOGIN, SPELLS_CHANGED
 		RefreshAll()
 		UpdateCounts()
